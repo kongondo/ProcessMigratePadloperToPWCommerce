@@ -24,6 +24,7 @@ namespace ProcessWire;
 class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
     private    const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
+    private    const PAGE_TITLE = 'Migrate Padloper to PWCommerce';
 
 
     public static function getModuleInfo() {
@@ -69,11 +70,22 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
     public function execute() {
 
-
+        $this->headline($this->_("Migrate Padloper to ProcessWire Commerce"));
         $out = "<p>Migration, incoming!</p>";
+        $isInstalledPadloper = $this->isInstalledPadloper();
+
+        bd($isInstalledPadloper, __METHOD__ . ': $isInstalledPadloper - at line #' . __LINE__);
         //--------------------
         return $out;
     }
+
+
+    private function isInstalledPadloper() {
+        return $this->wire('modules')->isInstalled('Padloper');
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
+
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INSTALL  ~~~~~~~~~~~~~~~~~~
 
@@ -90,7 +102,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         $page = new Page();
         $page->template = 'admin';
         $page->parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-        $page->title = 'Migrate Padloper to ProcessWire Commerce';
+        $page->title = self::PAGE_TITLE;
         $page->name = self::PAGE_NAME;
         $page->process = $this;
         $page->save();
