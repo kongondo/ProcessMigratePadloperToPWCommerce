@@ -72,17 +72,53 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
         $this->headline($this->_("Migrate Padloper to ProcessWire Commerce"));
         $out = "<p>Migration, incoming!</p>";
-        $isInstalledPadloper = $this->isInstalledPadloper();
 
-        bd($isInstalledPadloper, __METHOD__ . ': $isInstalledPadloper - at line #' . __LINE__);
+        $errors = $this->runChecks();
+        if (!empty($errors)) {
+            $out = "Migration cannot work due to the following errors: {$errors}";
+        }
+
         //--------------------
         return $out;
     }
 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATORS  ~~~~~~~~~~~~~~~~~~
 
-    private function isInstalledPadloper() {
-        return $this->wire('modules')->isInstalled('Padloper');
+    private function isInstalledModule($class) {
+        return $this->wire('modules')->isInstalled($class);
     }
+
+    private function runChecks() {
+        $errorsArray = $this->getErrors();
+        $errorsString = "";
+        if (!empty($errorsArray)) {
+            $errorsString = implode(", ", $errorsArray);
+        }
+        return $errorsString;
+    }
+
+    private function getErrors() {
+
+        $errors = [];
+
+        $padloperClass = 'Padloper';
+        $pwCommerceClass = 'PwCommerce';
+
+
+        // is padloper installed
+        if (empty($this->isInstalledModule($padloperClass))) {
+            $errors[] = $this->_('Padloper install not found!');
+        }
+        // is pwcommerce installed
+        if (empty($this->isInstalledModule($pwCommerceClass))) {
+            $errors[] = $this->_('ProcessWire Commerce install not found!');
+        }
+
+        bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
+        return $errors;
+    }
+
+
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
 
