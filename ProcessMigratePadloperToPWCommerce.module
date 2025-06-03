@@ -1,0 +1,131 @@
+<?php
+
+namespace ProcessWire;
+
+/**
+ * Migrate Padloper To PWCommerce: Process.
+ *
+ * Helper Process Module for migrating Padloper to ProcessWire Commerce.
+ * Displays the dashboard for accessing the migration script in the ProcessWire Admin.
+ *
+ * @author Francis Otieno (Kongondo) <kongondo@gmail.com> kongondo.com
+ *
+ *
+ *
+ * ProcessMigratePadloperToPWCommerce for ProcessWire Commerce, ProcessWire
+ * Copyright (C) 2025 by Francis Otieno
+ * MIT License
+ *
+ */
+
+
+
+
+class ProcessMigratePadloperToPWCommerce extends Process implements Module {
+
+    private    const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
+
+
+    public static function getModuleInfo() {
+
+        $moduleInfo =
+
+            [
+                'title' => __('Migrate Padloper to ProcessWire Commerce', __FILE__),
+                'summary' => __('Module to help migrate Padloper to ProcessWire Commerce', __FILE__),
+                'author' => 'Francis Otieno (Kongondo)',
+                'version' => "001",
+                'href' => 'http://kongondo.com',
+                // non-supusers need this permission before ProcessWire will load this module
+                'permission' => 'pwcommerce-migrate',
+                'singular' => true,
+                'requires' => [
+                    'PHP>=8.2.0',
+                    'ProcessWire>=3.0.200'
+                ],
+                // Array of permissions that ProcessWire will install (and uninstall) automatically. Permissions should be in the format: array('permission-name' => 'Permission description').
+                'permissions' => [
+                    'pwcommerce-migrate' => __('Permission to use Migrate Padloper to ProcessWire Commerce admin.', __FILE__),
+                ],
+                // see below; we add dynamically
+                // 'nav' => (new self)->getNavItemsForDropdown()
+            ];
+
+
+
+        // ------
+        return $moduleInfo;
+    }
+
+    public function __construct() {
+        parent::__construct();
+    }
+
+    public function init() {
+        parent::init();
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ EXECUTES  ~~~~~~~~~~~~~~~~~~
+
+    public function execute() {
+
+
+        $out = "<p>Migration, incoming!</p>";
+        //--------------------
+        return $out;
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INSTALL  ~~~~~~~~~~~~~~~~~~
+
+    public function ___install() {
+
+        // check if there is another page in admin with the name 'shop'. If so, abort installation
+        if ($this->installerOurModulePageAlreadyExists()) {
+            throw new WireException($this->_("Process PWCommerce: Installation aborted. A page with the name 'shop' already exists. This module needs that name. Please fix this then retry."));
+        }
+
+        // PWCOMMERCE PROCESS MODULE ADMIN PAGE
+        // create the page for this module (ProcessMigratePadloperToPWCommerce)
+        // it needs to use the template admin and it needs to have this module as its process
+        $page = new Page();
+        $page->template = 'admin';
+        $page->parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+        $page->title = 'Migrate Padloper to ProcessWire Commerce';
+        $page->name = self::PAGE_NAME;
+        $page->process = $this;
+        $page->save();
+        // -------------
+
+
+
+        // -------
+        // tell the user we created the page for this module
+        $this->message("Process MigratePadloperToPWCommerce: Created page {$page->path}");
+    }
+
+    public function ___uninstall() {
+        // find and delete the page we installed, locating it by the process field (which has the module ID)
+        // it would probably be sufficient just to locate by name, but this is just to be extra sure.
+        $moduleID = $this->wire('modules')->getModuleID($this);
+        $page = $this->wire('pages')->get("template=admin, process=$moduleID, name=" . self::PAGE_NAME);
+        // $page = $this->wire('pages')->get('template=admin, name='.self::PAGE_NAME);
+        if ($page->id) {
+            // if we found the page, let the user know and delete it
+            $this->message($this->_('Process MigratePadloperToPWCommerce: Deleted page ') . $page->path);
+            // @note: delete any child pages as well
+            $this->wire('pages')->delete($page, true);
+        }
+    }
+
+    private function installerOurModulePageAlreadyExists() {
+        $isPageExist = false;
+        // check if our process module's page already exists in Admin
+        $parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+        $page = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PAGE_NAME);
+        if ($page->id && $page->id > 0) {
+            $isPageExist = true;
+        }
+
+        return $isPageExist;
+    }
+}
