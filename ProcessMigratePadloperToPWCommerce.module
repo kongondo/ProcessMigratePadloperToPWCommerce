@@ -25,6 +25,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
     private    const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
     private    const PAGE_TITLE = 'Migrate Padloper to PWCommerce';
+    private    const MIGRATION_SESSION_NAME = 'pwcommerce-migration';
 
 
     public static function getModuleInfo() {
@@ -48,8 +49,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
                 'permissions' => [
                     'pwcommerce-migrate' => __('Permission to use Migrate Padloper to ProcessWire Commerce admin.', __FILE__),
                 ],
-                // see below; we add dynamically
-                // 'nav' => (new self)->getNavItemsForDropdown()
+
             ];
 
 
@@ -71,14 +71,49 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     public function execute() {
 
         $this->headline($this->_("Migrate Padloper to ProcessWire Commerce"));
-        $out = "<p>Migration, incoming!</p>";
+
+        $out = "<h3>" .
+            $this->_('Important Read')
+            . "</h3>";
+        $out .= "<p>" .
+
+            $this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
+
+            "</p>";
+
+        // -----
+        // NOTES
+        $out .= $this->renderNotes();
+
+        // #########
 
         $errors = $this->runChecks();
         if (!empty($errors)) {
-            $out = "Migration cannot work due to the following errors: {$errors}";
+            $out .= "<h3>" .
+                $this->_('Error Encountered')
+                . "</h3>";
+            $out .= "Migration cannot work due to the following errors: {$errors}";
+        } else {
+            // GOOD TO GO
+            // set session
+            $this->setMigrationSession();
+            // render get started button
+            $out .= $this->renderStartMigration();
         }
 
         //--------------------
+        return $out;
+    }
+
+    public function executeGetStarted() {
+        $this->headline($this->_("Get Started"));
+        // TODO CHECK IF MIGRATION SESSION IS ON!
+        if (empty($this->isMigrationSessionValid())) {
+            $error = $this->_('Invalid Migration Session');
+            $this->error($error);
+            $this->session->redirect($this->page->url);
+        };
+        $out = "<p>GET STARTED!</p>";
         return $out;
     }
 
@@ -86,6 +121,36 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
     private function isInstalledModule($class) {
         return $this->wire('modules')->isInstalled($class);
+    }
+
+    private function isMigrationSessionValid() {
+        $isValidMigrationSession = true;
+        // check if session is set
+        // check if session set is longer than 1 hour 
+        // TODO  time ok?
+        $migrationSession = $this->getMigrationSession();
+        bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+
+
+        if (empty($migrationSession)) {
+            $isValidMigrationSession = false;
+        } elseif (!empty($this->isStaleMigrationSession())) {
+            $isValidMigrationSession = false;
+        }
+
+        return $isValidMigrationSession;
+    }
+
+    private function isStaleMigrationSession() {
+        // NOTE TIMESTAMP
+        $migrationSession = (int)$this->getMigrationSession();
+        $currentTime = time();
+        // stale session is one that is more than 1 hour old
+        $isStaleSession = $currentTime - $migrationSession > 3600;
+        bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+        bd($currentTime, __METHOD__ . ': $currentTime - at line #' . __LINE__);
+        bd($isStaleSession, __METHOD__ . ': $isStaleSession - at line #' . __LINE__);
+        return $isStaleSession;
     }
 
     private function runChecks() {
@@ -113,14 +178,126 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         if (empty($this->isInstalledModule($pwCommerceClass))) {
             $errors[] = $this->_('ProcessWire Commerce install not found!');
         }
+        $errors = [];
 
         bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
         return $errors;
     }
 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SESSION  ~~~~~~~~~~~~~~~~~~
 
+    private function setMigrationSession() {
+        // TODO IF WE ALREADY HAVE A SESSION AND IT IS NOT MORE THAN 1 HOUR LONG? WE REUSE IT
+        if (!empty($this->isStaleMigrationSession())) {
+            $this->session->set(self::MIGRATION_SESSION_NAME, time());
+        }
+    }
+
+    private function getMigrationSession() {
+        $migrationSession = $this->session->get(self::MIGRATION_SESSION_NAME);
+        return $migrationSession;
+    }
+
+    private function removeMigrationSession() {
+        $this->session->remove(self::MIGRATION_SESSION_NAME);
+    }
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GETTERS  ~~~~~~~~~~~~~~~~~~
+
+    private function getPadloperPages() {
+    }
+    private function getPadloperTemplates() {
+    }
+    private function getPadloperTemplateFiles() {
+    }
+    private function getPadloperTemplatePartials() {
+    }
+    private function getPadloperFields() {
+    }
+    private function getPadloperAssets() {
+    }
+
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NOTES  ~~~~~~~~~~~~~~~~~~
+
+    private function renderNotes() {
+        $out = "<ol>";
+        foreach ($this->getNotes() as $note) {
+            $out .= "<li>{$note}</li>";
+        }
+        $out .= "</ol>";
+        return $out;
+    }
+
+    private function getNotes() {
+        $notes = [
+            $this->_('Usage of this tool is at your own risk.'),
+            $this->_('Create a whole backup of your site before getting started.'),
+            $this->_('Preferably, test on test server.'),
+            $this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
+            $this->_('Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!'),
+        ];
+        return $notes;
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MISC  ~~~~~~~~~~~~~~~~~~
+
+    private function renderStartMigration() {
+
+        $out = "<h3>" .
+            $this->_('Get Started')
+            . "</h3>";
+
+        $href = $this->page->url . "get-started/";
+        bd($href, __METHOD__ . ': $href - at line #' . __LINE__);
+        $options = [
+            'name' => 'pwmigrate_get_started',
+            'label' => $this->_('Get Started'),
+            'type' => 'button',
+            'href' => $href,
+        ];
+        $field = $this->getButton($options);
+        $out .= $field->render();
+        return $out;
+    }
+
+    private function getButton($options) {
+
+        /** @var InputfieldButton $field */
+        $field = $this->wire('modules')->get('InputfieldButton');
+        $type = !empty($options['type']) ? $options['type'] : 'button';
+
+        $field->attr([
+            'name' => $options['name'],
+            'label' => $options['label'],
+            'type' => $type,
+
+        ]);
+
+
+        if (!empty($options['href'])) {
+            $field->attr('href', $options['href']);
+        }
+
+        return $field;
+    }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
+
+    private function actionMigratePages() {
+    }
+    private function actionMigrateTemplates() {
+    }
+    private function actionMigrateTemplateFiles() {
+    }
+    private function actionMigrateTemplatePartials() {
+    }
+    private function actionMigrateFields() {
+    }
+    private function actionMigrateAssets() {
+    }
 
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INSTALL  ~~~~~~~~~~~~~~~~~~
