@@ -178,7 +178,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         if (empty($this->isInstalledModule($pwCommerceClass))) {
             $errors[] = $this->_('ProcessWire Commerce install not found!');
         }
-        $errors = [];
+        
 
         bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
         return $errors;
