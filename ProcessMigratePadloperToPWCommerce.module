@@ -26,6 +26,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     private    const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
     private    const PAGE_TITLE = 'Migrate Padloper to PWCommerce';
     private    const MIGRATION_SESSION_NAME = 'pwcommerce-migration';
+    private    const PADLOPER_SHOP_NAME = 'shop';
+    private    const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
+    private    const PADLOPER_ROOT_PAGE_NAME = 'padloper';
 
 
     public static function getModuleInfo() {
@@ -80,6 +83,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
             $this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
 
             "</p>";
+
+        $processPadloperShopPage = $this->getProcessPadloperShopPage();
+        $padloperRootPage = $this->getPadloperRootPage();
+        bd($processPadloperShopPage, __METHOD__ . ': $processPadloperShopPage - at line #' . __LINE__);
+        bd($padloperRootPage, __METHOD__ . ': $padloperRootPage - at line #' . __LINE__);
 
         // -----
         // NOTES
@@ -178,7 +186,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         if (empty($this->isInstalledModule($pwCommerceClass))) {
             $errors[] = $this->_('ProcessWire Commerce install not found!');
         }
-        
+
 
         bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
         return $errors;
@@ -216,6 +224,25 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     private function getPadloperFields() {
     }
     private function getPadloperAssets() {
+    }
+    private function getPadloperInstallSettings() {
+    }
+
+    private function getProcessPadloperShopPage() {
+        // ProcessPadloper page
+        // i.e. /admin/shop/
+        $parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+        $shopPage = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PADLOPER_SHOP_NAME);
+        return $shopPage;
+    }
+
+    private function getPadloperRootPage() {
+        // root page of all padloper pages
+        // child of the ProcessPadloper page
+        // i.e. /admin/shop/padloper/
+        $parent = $this->getProcessPadloperShopPage();
+        $rootPage = $this->wire('pages')->get("parent=$parent, template=padloper, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
+        return $rootPage;
     }
 
 
