@@ -29,6 +29,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     private    const PADLOPER_SHOP_NAME = 'shop';
     private    const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
     private    const PADLOPER_ROOT_PAGE_NAME = 'padloper';
+    private    const PADLOPER_PROCESS_MODULE = 'ProcessPadloper';
+    const PADLOPER_BACKEND_TEMPLATES_PATH = "padloper/backend/";
+    const PADLOPER_PARTIAL_TEMPLATES_PATH = "padloper/";
 
 
     public static function getModuleInfo() {
@@ -225,6 +228,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     private function getPadloperTemplateFiles() {
     }
     private function getPadloperTemplatePartials() {
+        // TODO ONLY NEEDED FOR 'backend'
+        $templatePartialsPath = $this->config->paths->templates . self::PADLOPER_BACKEND_TEMPLATES_PATH;
+
+        /** @var WireFileTools $files */
+        $files = $this->wire('files');
+        $templatePartialsFiles = $files->find($templatePartialsPath);
+        return $templatePartialsFiles;
     }
 
     private function getPadloperFields() {
@@ -236,8 +246,32 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     }
 
     private function getPadloperAssets() {
+        // TODO DO WE STILL NEED THIS? RETHINK!
+        // ALL WE NEED IS TO RENAME THE site/templates/padloper folder to site/templates/pwcommerce THEN!
+        // TO RENAME THE FILES IN site/templates/pwcommerCE/backend/*.*!!!
+        // SO CALL THE RENAME METHOD FIRST!
+        // TODO ASSETS TO CREATE!
+        // $assets = [
+        //     "padloper/addons",
+        //     "padloper/backend/",
+        //     "padloper/frontend/",
+        // ];
+
+        $templatePartialsPath = $this->config->paths->templates . self::PADLOPER_PARTIAL_TEMPLATES_PATH;
+
+
+        /** @var WireFileTools $files */
+        $files = $this->wire('files');
+        $templatePartialsFiles = $files->find($templatePartialsPath);
+        return $templatePartialsFiles;
+        // return $assets;
     }
+
     private function getPadloperInstallSettings() {
+        /** @var Modules $modules */
+        $modules = $this->wire('modules');
+        $configs = $modules->getConfig(self::PADLOPER_PROCESS_MODULE);
+        return $configs;
     }
 
     private function getProcessPadloperShopPage() {
@@ -343,9 +377,27 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         }
     }
     private function actionMigrateTemplateFiles() {
+        // TODO not needed?
     }
+
     private function actionMigrateTemplatePartials() {
+        $templatePartialsFiles = $this->getPadloperTemplatePartials();
+        bdb($templatePartialsFiles, __METHOD__ . ': $templatePartialsFiles - at line #' . __LINE__);
+        /** @var WireFileTools $files */
+        $files = $this->wire('files');
+        if (!empty($templatePartialsFiles)) {
+            // TODO RENAME THEM
+            foreach ($templatePartialsFiles as $oldName) {
+                $newName = str_replace("padloper", "pwcommerce", $oldName);
+                // TODO CATCH ERRORS?
+                // $bool = $files->rename($oldName,  $newName);
+                bd($oldName, __METHOD__ . ': $oldName - at line #' . __LINE__);
+                bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
+                // bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+            }
+        }
     }
+
     private function actionMigrateFields() {
         $padloperFields = $this->getPadloperFields();
         bdb($padloperFields, __METHOD__ . ': $padloperFields - at line #' . __LINE__);
@@ -377,7 +429,48 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
             }
         }
     }
+
     private function actionMigrateAssets() {
+        $padloperAssets = $this->getPadloperAssets();
+        bd($padloperAssets, __METHOD__ . ': $padloperAssets - at line #' . __LINE__);
+        /** @var Config $config */
+        $config = $this->wire('config');
+
+        $assetsPath = $config->paths->templates;
+        bd($assetsPath, __METHOD__ . ': $assetsPath - at line #' . __LINE__);
+
+        /** @var WireFileTools $files */
+        $files = $this->wire('files');
+        // $bool = $files->mkdir($path, $recursive = true);
+    }
+
+    private function actionMigrateInstallSettings() {
+        $installConfigs = $this->getPadloperInstallSettings();
+        bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+        $importInstallConfigs = [];
+        foreach ($installConfigs as $key => $value) {
+            $renamedKey = str_replace("padloper", "pwcommerce", $key);
+            $importInstallConfigs[$renamedKey] = $value;
+        }
+        bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+
+        // TODO WE NEED TO RETRIEVE THEM BEFORE WE UNINSTALL PADLOPER BUT AFTER WE INSTALL PROCESSWIRE COMMERCE!
+        // SO SAVE TO CACHE?
+        // $this->cachePadloperInstallSettings($importInstallConfigs);
+        // save them
+        // $this->savePadloperInstallSettings($importInstallConfigs);
+    }
+
+    private function savePadloperInstallSettings($data) {
+        /** @var Modules $modules */
+        $modules = $this->wire('modules');
+        $configs = $modules->saveConfig(self::PADLOPER_PROCESS_MODULE, $data);
+        return $configs;
+    }
+    private function cachePadloperInstallSettings($data) {
+        /** @var WireCache $cache */
+        $cache = $this->wire('cache');
+        $cache->save(self::PADLOPER_PROCESS_MODULE, $data);
     }
 
 
@@ -459,5 +552,26 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
         // TEST RENAME PADLOPER FIELDS
         // $this->actionMigrateFields();
+
+        // TEST GET PROCESS PADLOPER INSTALL SETTINGS TO IMPORT
+        // $installConfigs = $this->getPadloperInstallSettings();
+        // bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+
+        // TEST IMPORT PROCESS PADLOPER INSTALL SETTINGS
+        // $this->actionMigrateInstallSettings();
+
+        // TEST GET PADLOPER TEMPLATE PARTIALS TO RENAME
+        // $templatePartialsFiles = $this->getPadloperTemplatePartials();
+        // bdb($templatePartialsFiles, __METHOD__ . ': $templatePartialsFiles - PADLOPER TEMPLATE PARTIALS TO RENAME - at line #' . __LINE__);
+
+        // TEST RENAME PADLOPER TEMPLATE PARTIALS
+        // $this->actionMigrateTemplatePartials();
+
+        // TEST GET PADLOPER SITE ASSETS TO RENAME
+        $padloperAssets = $this->getPadloperAssets();
+        bdb($padloperAssets, __METHOD__ . ': $padloperAssets - PADLOPER SITE ASSETS TO RENAME - at line #' . __LINE__);
+
+        // TEST RENAME PADLOPER SITE ASSETS
+        $this->actionMigrateAssets();
     }
 }
