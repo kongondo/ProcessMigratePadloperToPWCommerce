@@ -84,10 +84,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
             "</p>";
 
-        $processPadloperShopPage = $this->getProcessPadloperShopPage();
-        $padloperRootPage = $this->getPadloperRootPage();
-        bd($processPadloperShopPage, __METHOD__ . ': $processPadloperShopPage - at line #' . __LINE__);
-        bd($padloperRootPage, __METHOD__ . ': $padloperRootPage - at line #' . __LINE__);
+        $this->_debug();
 
         // -----
         // NOTES
@@ -214,15 +211,30 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GETTERS  ~~~~~~~~~~~~~~~~~~
 
     private function getPadloperPages() {
+        // TODO probably not needed! we only need the shop root page then get its children
+        // for children in main tree, no need to bother them
     }
-    private function getPadloperTemplates() {
+    private function getPadloperTemplates(): TemplatesArray {
+        // $padloperTemplates = $this->wire('templates')->find("name%=padloper");
+
+        /** @var TemplatesArray $padloperTemplates */
+        $padloperTemplates = $this->wire('templates')->find("name^=padloper");
+        return $padloperTemplates;
     }
+
     private function getPadloperTemplateFiles() {
     }
     private function getPadloperTemplatePartials() {
     }
+
     private function getPadloperFields() {
+        // $padloperFields = $this->wire('fields')->find("name%=padloper");
+
+        /** @var FieldsArray $padloperFields */
+        $padloperFields = $this->wire('fields')->find("name^=padloper");
+        return $padloperFields;
     }
+
     private function getPadloperAssets() {
     }
     private function getPadloperInstallSettings() {
@@ -316,12 +328,54 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
     private function actionMigratePages() {
     }
     private function actionMigrateTemplates() {
+        // TODO ALSO NEED TO RENAME LABELS!
+        $padloperTemplates = $this->getPadloperTemplates();
+        bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - at line #' . __LINE__);
+        if (!empty($padloperTemplates->count())) {
+            // TODO MAYBE IN RUN CHECKS?
+            /** @var Template $template */
+            foreach ($padloperTemplates as $template) {
+                // bd($template, __METHOD__ . ': $template - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+                $name = str_replace("padloper", "pwcommerce", $template->name);
+                bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+                // $this->wire('templates')->rename($template, $name);
+            }
+        }
     }
     private function actionMigrateTemplateFiles() {
     }
     private function actionMigrateTemplatePartials() {
     }
     private function actionMigrateFields() {
+        $padloperFields = $this->getPadloperFields();
+        bdb($padloperFields, __METHOD__ . ': $padloperFields - at line #' . __LINE__);
+        if (!empty($padloperFields->count())) {
+            // TODO MAYBE IN RUN CHECKS?
+            /** @var Field $field */
+            foreach ($padloperFields as $field) {
+                $name = str_replace("padloper", "pwcommerce", $field->name);
+                $label = str_replace("Padloper", "PWCommerce", $field->label);
+
+
+                $description = null;
+
+                if (!empty($field->description)) {
+                    $description = str_replace("padloper", "pwcommerce", $field->description);
+                }
+
+
+                // bd($name, __METHOD__ . ': $name - FOR RENAMED FIELD - at line #' . __LINE__);
+                // bd($label, __METHOD__ . ': $label - FOR RENAMED FIELD - at line #' . __LINE__);
+                // bd($description, __METHOD__ . ': $description - FOR RENAMED FIELD - at line #' . __LINE__);
+                // bd($field, __METHOD__ . ': $field - FOR RENAMED FIELD - at line #' . __LINE__);
+                $field->name = $name;
+                $field->label = $label;
+                if (!empty($description)) {
+                    $field->description = $description;
+                }
+                // $this->wire('fields')->save($field);
+            }
+        }
     }
     private function actionMigrateAssets() {
     }
@@ -379,5 +433,31 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
         }
 
         return $isPageExist;
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DEBUG  ~~~~~~~~~~~~~~~~~~
+
+    private function _debug() {
+        // TEST GET PADLOPER PROCESS PAGE
+        // $processPadloperShopPage = $this->getProcessPadloperShopPage();
+        // bd($processPadloperShopPage, __METHOD__ . ': $processPadloperShopPage - PADLOPER PROCESS PAGE - at line #' . __LINE__);
+
+        // TEST GET PADLOPER SHOP ROOT PAGE
+        // $padloperRootPage = $this->getPadloperRootPage();
+        // bd($padloperRootPage, __METHOD__ . ': $padloperRootPage - PADLOPER SHOP ROOT PAGE - at line #' . __LINE__);
+
+        // TEST GET PADLOPER TEMPLATES TO RENAME
+        // $padloperTemplates = $this->getPadloperTemplates();
+        // bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - PADLOPER TEMPLATES TO RENAME - at line #' . __LINE__);
+
+        // TEST RENAME PADLOPER TEMPLATES
+        // $this->actionMigrateTemplates();
+
+        // TEST GET PADLOPER FIELDS TO RENAME
+        // $padloperFields = $this->getPadloperFields();
+        // bdb($padloperFields, __METHOD__ . ': $padloperFields - PADLOPER FIELDS TO RENAME - at line #' . __LINE__);
+
+        // TEST RENAME PADLOPER FIELDS
+        // $this->actionMigrateFields();
     }
 }
