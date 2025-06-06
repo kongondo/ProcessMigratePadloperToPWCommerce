@@ -373,6 +373,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $padloperModules;
 	}
 
+	private function getClassShortName($object) {
+		$shortName = (new \ReflectionClass($object))->getShortName();
+		return $shortName;
+	}
+
 
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NOTES  ~~~~~~~~~~~~~~~~~~
@@ -554,10 +559,26 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// TODO - WILL WE HAVE INSTALLED THE CUSTOM FIELDS FIRST?
 		// E.G. IF INSTALL HAS padloper_notes, we install pwcommerce_notes???
 
-		if(!empty($padloperCustomFields->count())){
-			foreach($padloperCustomFields as $padloperCustomField){
-				// get corresponding pw commerce field
-				// $pwcommerceField = 
+		if (!empty($padloperCustomFields->count())) {
+			/** @var Field $padloperCustomField */
+			foreach ($padloperCustomFields as $padloperCustomField) {
+				// GET THE SHORTNAME OF THE CLASS OF THE CURRENT FIELDTYPE
+				// e.g. 'FieldtypePadloperNotes'
+				$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
+
+				$pwcommerceCustomFieldTypeClass = str_replace("Padloper", "PWCommerce", $padloperCustomFieldTypeClass);
+				bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
+				bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
+				// install the PWCommerce Field
+				// TODO CONFIRM IT INSTALLS INPUTFIELD ALSO
+				$module = $this->actionMigrateInstallModule($pwcommerceCustomFieldTypeClass);
+				if (empty($module)) {
+					// TODO ERROR CATCH
+				} else {
+					// UNINSTALL PADLOPER CUSTOM FIELDTYPE
+					// TODO OK HERE OR ALWAYS?
+					// HERE OTHERWISE WILL 'HANG'?
+				}
 			}
 		}
 	}
@@ -634,16 +655,52 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function actionMigrateUninstallPadloperModules() {
 
-		$padloperModules = $this->getUninstallPadloperModulesNames();
-		bd($padloperModules, __METHOD__ . ': $padloperModules - at line #' . __LINE__);
+		$padloperModulesNames = $this->getUninstallPadloperModulesNames();
+		bd($padloperModulesNames, __METHOD__ . ': $padloperModulesNames - at line #' . __LINE__);
 
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
-		foreach ($padloperModules as $padloperModule) {
-			// $bool = $modules->uninstall($padloperModule);
+		foreach ($padloperModulesNames as $padloperModuleName) {
+			// $bool = $this->actionMigrateUninstallModule($padloperModuleName);
 		}
 	}
 
+	private function actionMigrateUninstallPadloperCustomFields() {
+
+		$padloperCustomFields = $this->getPadloperCustomFields();
+		bd($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
+
+		/** @var Field $padloperCustomField */
+		foreach ($padloperCustomFields as $padloperCustomField) {
+			// TODO DOES THIS UNINSTALL ITS INPUTFIELD AS WELL?
+			$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
+			// $bool = $this->actionMigrateUninstallModule($padloperCustomField);
+			if(empty($bool)){
+				// TODO NOT UNINSTALLED
+			}
+		}
+	}
+
+
+	private function actionMigrateInstallModule($class) {
+		bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		// TODO DELETE AFTER DEBUG/WHEN READY
+		$module = false;
+		//$module = $modules->install($class);
+		return $module;
+	}
+
+	private function actionMigrateUninstallModule($class) {
+		bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		// TODO DELETE AFTER DEBUG/WHEN READY
+		$isUninstalled = false;
+		// $isUninstalled = $modules->uninstall($class);
+		return $isUninstalled;
+	}
 
 
 	private function actionMigrateInstallSettings() {
