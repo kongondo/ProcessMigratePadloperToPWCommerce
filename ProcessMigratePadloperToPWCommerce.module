@@ -23,555 +23,565 @@ namespace ProcessWire;
 
 class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
-    private    const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
-    private    const PAGE_TITLE = 'Migrate Padloper to PWCommerce';
-    private    const MIGRATION_SESSION_NAME = 'pwcommerce-migration';
-    private    const PADLOPER_SHOP_NAME = 'shop';
-    private    const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
-    private    const PADLOPER_ROOT_PAGE_NAME = 'padloper';
-    private    const PADLOPER_PROCESS_MODULE = 'ProcessPadloper';
-    const PADLOPER_BACKEND_TEMPLATES_PATH = "padloper/backend/";
-    const PADLOPER_PARTIAL_TEMPLATES_PATH = "padloper/";
-
-
-    public static function getModuleInfo() {
-
-        $moduleInfo =
-
-            [
-                'title' => __('Migrate Padloper to ProcessWire Commerce', __FILE__),
-                'summary' => __('Module to help migrate Padloper to ProcessWire Commerce', __FILE__),
-                'author' => 'Francis Otieno (Kongondo)',
-                'version' => "001",
-                'href' => 'http://kongondo.com',
-                // non-supusers need this permission before ProcessWire will load this module
-                'permission' => 'pwcommerce-migrate',
-                'singular' => true,
-                'requires' => [
-                    'PHP>=8.2.0',
-                    'ProcessWire>=3.0.200'
-                ],
-                // Array of permissions that ProcessWire will install (and uninstall) automatically. Permissions should be in the format: array('permission-name' => 'Permission description').
-                'permissions' => [
-                    'pwcommerce-migrate' => __('Permission to use Migrate Padloper to ProcessWire Commerce admin.', __FILE__),
-                ],
-
-            ];
-
-
-
-        // ------
-        return $moduleInfo;
-    }
-
-    public function __construct() {
-        parent::__construct();
-    }
-
-    public function init() {
-        parent::init();
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ EXECUTES  ~~~~~~~~~~~~~~~~~~
-
-    public function execute() {
-
-        $this->headline($this->_("Migrate Padloper to ProcessWire Commerce"));
-
-        $out = "<h3>" .
-            $this->_('Important Read')
-            . "</h3>";
-        $out .= "<p>" .
-
-            $this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
-
-            "</p>";
-
-        $this->_debug();
-
-        // -----
-        // NOTES
-        $out .= $this->renderNotes();
-
-        // #########
-
-        $errors = $this->runChecks();
-        if (!empty($errors)) {
-            $out .= "<h3>" .
-                $this->_('Error Encountered')
-                . "</h3>";
-            $out .= "Migration cannot work due to the following errors: {$errors}";
-        } else {
-            // GOOD TO GO
-            // set session
-            $this->setMigrationSession();
-            // render get started button
-            $out .= $this->renderStartMigration();
-        }
-
-        //--------------------
-        return $out;
-    }
-
-    public function executeGetStarted() {
-        $this->headline($this->_("Get Started"));
-        // TODO CHECK IF MIGRATION SESSION IS ON!
-        if (empty($this->isMigrationSessionValid())) {
-            $error = $this->_('Invalid Migration Session');
-            $this->error($error);
-            $this->session->redirect($this->page->url);
-        };
-        $out = "<p>GET STARTED!</p>";
-        return $out;
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATORS  ~~~~~~~~~~~~~~~~~~
-
-    private function isInstalledModule($class) {
-        return $this->wire('modules')->isInstalled($class);
-    }
-
-    private function isMigrationSessionValid() {
-        $isValidMigrationSession = true;
-        // check if session is set
-        // check if session set is longer than 1 hour 
-        // TODO  time ok?
-        $migrationSession = $this->getMigrationSession();
-        bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
-
-
-        if (empty($migrationSession)) {
-            $isValidMigrationSession = false;
-        } elseif (!empty($this->isStaleMigrationSession())) {
-            $isValidMigrationSession = false;
-        }
-
-        return $isValidMigrationSession;
-    }
-
-    private function isStaleMigrationSession() {
-        // NOTE TIMESTAMP
-        $migrationSession = (int)$this->getMigrationSession();
-        $currentTime = time();
-        // stale session is one that is more than 1 hour old
-        $isStaleSession = $currentTime - $migrationSession > 3600;
-        bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
-        bd($currentTime, __METHOD__ . ': $currentTime - at line #' . __LINE__);
-        bd($isStaleSession, __METHOD__ . ': $isStaleSession - at line #' . __LINE__);
-        return $isStaleSession;
-    }
-
-    private function runChecks() {
-        $errorsArray = $this->getErrors();
-        $errorsString = "";
-        if (!empty($errorsArray)) {
-            $errorsString = implode(", ", $errorsArray);
-        }
-        return $errorsString;
-    }
-
-    private function getErrors() {
-
-        $errors = [];
-
-        $padloperClass = 'Padloper';
-        $pwCommerceClass = 'PwCommerce';
-
-
-        // is padloper installed
-        if (empty($this->isInstalledModule($padloperClass))) {
-            $errors[] = $this->_('Padloper install not found!');
-        }
-        // is pwcommerce installed
-        if (empty($this->isInstalledModule($pwCommerceClass))) {
-            $errors[] = $this->_('ProcessWire Commerce install not found!');
-        }
-
-
-        bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
-        return $errors;
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SESSION  ~~~~~~~~~~~~~~~~~~
-
-    private function setMigrationSession() {
-        // TODO IF WE ALREADY HAVE A SESSION AND IT IS NOT MORE THAN 1 HOUR LONG? WE REUSE IT
-        if (!empty($this->isStaleMigrationSession())) {
-            $this->session->set(self::MIGRATION_SESSION_NAME, time());
-        }
-    }
-
-    private function getMigrationSession() {
-        $migrationSession = $this->session->get(self::MIGRATION_SESSION_NAME);
-        return $migrationSession;
-    }
-
-    private function removeMigrationSession() {
-        $this->session->remove(self::MIGRATION_SESSION_NAME);
-    }
-
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GETTERS  ~~~~~~~~~~~~~~~~~~
-
-    private function getPadloperPages() {
-        // TODO probably not needed! we only need the shop root page then get its children
-        // for children in main tree, no need to bother them
-    }
-    private function getPadloperTemplates(): TemplatesArray {
-        // $padloperTemplates = $this->wire('templates')->find("name%=padloper");
-
-        /** @var TemplatesArray $padloperTemplates */
-        $padloperTemplates = $this->wire('templates')->find("name^=padloper");
-        return $padloperTemplates;
-    }
-
-    private function getPadloperTemplateFiles() {
-    }
-    private function getPadloperTemplatePartials() {
-        // TODO ONLY NEEDED FOR 'backend'
-        $templatePartialsPath = $this->config->paths->templates . self::PADLOPER_BACKEND_TEMPLATES_PATH;
-
-        /** @var WireFileTools $files */
-        $files = $this->wire('files');
-        $templatePartialsFiles = $files->find($templatePartialsPath);
-        return $templatePartialsFiles;
-    }
-
-    private function getPadloperFields() {
-        // $padloperFields = $this->wire('fields')->find("name%=padloper");
-
-        /** @var FieldsArray $padloperFields */
-        $padloperFields = $this->wire('fields')->find("name^=padloper");
-        return $padloperFields;
-    }
-
-    private function getPadloperAssets() {
-        // TODO DO WE STILL NEED THIS? RETHINK!
-        // ALL WE NEED IS TO RENAME THE site/templates/padloper folder to site/templates/pwcommerce THEN!
-        // TO RENAME THE FILES IN site/templates/pwcommerCE/backend/*.*!!!
-        // SO CALL THE RENAME METHOD FIRST!
-        // TODO ASSETS TO CREATE!
-        // $assets = [
-        //     "padloper/addons",
-        //     "padloper/backend/",
-        //     "padloper/frontend/",
-        // ];
-
-        $templatePartialsPath = $this->config->paths->templates . self::PADLOPER_PARTIAL_TEMPLATES_PATH;
-
-
-        /** @var WireFileTools $files */
-        $files = $this->wire('files');
-        $templatePartialsFiles = $files->find($templatePartialsPath);
-        return $templatePartialsFiles;
-        // return $assets;
-    }
-
-    private function getPadloperInstallSettings() {
-        /** @var Modules $modules */
-        $modules = $this->wire('modules');
-        $configs = $modules->getConfig(self::PADLOPER_PROCESS_MODULE);
-        return $configs;
-    }
-
-    private function getProcessPadloperShopPage() {
-        // ProcessPadloper page
-        // i.e. /admin/shop/
-        $parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-        $shopPage = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PADLOPER_SHOP_NAME);
-        return $shopPage;
-    }
-
-    private function getPadloperRootPage() {
-        // root page of all padloper pages
-        // child of the ProcessPadloper page
-        // i.e. /admin/shop/padloper/
-        $parent = $this->getProcessPadloperShopPage();
-        $rootPage = $this->wire('pages')->get("parent=$parent, template=padloper, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
-        return $rootPage;
-    }
-
-
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NOTES  ~~~~~~~~~~~~~~~~~~
-
-    private function renderNotes() {
-        $out = "<ol>";
-        foreach ($this->getNotes() as $note) {
-            $out .= "<li>{$note}</li>";
-        }
-        $out .= "</ol>";
-        return $out;
-    }
-
-    private function getNotes() {
-        $notes = [
-            $this->_('Usage of this tool is at your own risk.'),
-            $this->_('Create a whole backup of your site before getting started.'),
-            $this->_('Preferably, test on test server.'),
-            $this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
-            $this->_('Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!'),
-        ];
-        return $notes;
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MISC  ~~~~~~~~~~~~~~~~~~
-
-    private function renderStartMigration() {
-
-        $out = "<h3>" .
-            $this->_('Get Started')
-            . "</h3>";
-
-        $href = $this->page->url . "get-started/";
-        bd($href, __METHOD__ . ': $href - at line #' . __LINE__);
-        $options = [
-            'name' => 'pwmigrate_get_started',
-            'label' => $this->_('Get Started'),
-            'type' => 'button',
-            'href' => $href,
-        ];
-        $field = $this->getButton($options);
-        $out .= $field->render();
-        return $out;
-    }
-
-    private function getButton($options) {
-
-        /** @var InputfieldButton $field */
-        $field = $this->wire('modules')->get('InputfieldButton');
-        $type = !empty($options['type']) ? $options['type'] : 'button';
-
-        $field->attr([
-            'name' => $options['name'],
-            'label' => $options['label'],
-            'type' => $type,
-
-        ]);
-
-
-        if (!empty($options['href'])) {
-            $field->attr('href', $options['href']);
-        }
-
-        return $field;
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
-
-    private function actionMigratePages() {
-    }
-    private function actionMigrateTemplates() {
-        // TODO ALSO NEED TO RENAME LABELS!
-        $padloperTemplates = $this->getPadloperTemplates();
-        bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - at line #' . __LINE__);
-        if (!empty($padloperTemplates->count())) {
-            // TODO MAYBE IN RUN CHECKS?
-            /** @var Template $template */
-            foreach ($padloperTemplates as $template) {
-                // bd($template, __METHOD__ . ': $template - FOR RENAMED TEMPLATE - at line #' . __LINE__);
-                $name = str_replace("padloper", "pwcommerce", $template->name);
-                bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
-                // $this->wire('templates')->rename($template, $name);
-            }
-        }
-    }
-    private function actionMigrateTemplateFiles() {
-        // TODO not needed?
-    }
-
-    private function actionMigrateTemplatePartials() {
-        $templatePartialsFiles = $this->getPadloperTemplatePartials();
-        bdb($templatePartialsFiles, __METHOD__ . ': $templatePartialsFiles - at line #' . __LINE__);
-        /** @var WireFileTools $files */
-        $files = $this->wire('files');
-        if (!empty($templatePartialsFiles)) {
-            // TODO RENAME THEM
-            foreach ($templatePartialsFiles as $oldName) {
-                $newName = str_replace("padloper", "pwcommerce", $oldName);
-                // TODO CATCH ERRORS?
-                // $bool = $files->rename($oldName,  $newName);
-                bd($oldName, __METHOD__ . ': $oldName - at line #' . __LINE__);
-                bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
-                // bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
-            }
-        }
-    }
-
-    private function actionMigrateFields() {
-        $padloperFields = $this->getPadloperFields();
-        bdb($padloperFields, __METHOD__ . ': $padloperFields - at line #' . __LINE__);
-        if (!empty($padloperFields->count())) {
-            // TODO MAYBE IN RUN CHECKS?
-            /** @var Field $field */
-            foreach ($padloperFields as $field) {
-                $name = str_replace("padloper", "pwcommerce", $field->name);
-                $label = str_replace("Padloper", "PWCommerce", $field->label);
-
-
-                $description = null;
-
-                if (!empty($field->description)) {
-                    $description = str_replace("padloper", "pwcommerce", $field->description);
-                }
-
-
-                // bd($name, __METHOD__ . ': $name - FOR RENAMED FIELD - at line #' . __LINE__);
-                // bd($label, __METHOD__ . ': $label - FOR RENAMED FIELD - at line #' . __LINE__);
-                // bd($description, __METHOD__ . ': $description - FOR RENAMED FIELD - at line #' . __LINE__);
-                // bd($field, __METHOD__ . ': $field - FOR RENAMED FIELD - at line #' . __LINE__);
-                $field->name = $name;
-                $field->label = $label;
-                if (!empty($description)) {
-                    $field->description = $description;
-                }
-                // $this->wire('fields')->save($field);
-            }
-        }
-    }
-
-    private function actionMigrateAssets() {
-        $padloperAssets = $this->getPadloperAssets();
-        bd($padloperAssets, __METHOD__ . ': $padloperAssets - at line #' . __LINE__);
-        /** @var Config $config */
-        $config = $this->wire('config');
-
-        $assetsPath = $config->paths->templates;
-        bd($assetsPath, __METHOD__ . ': $assetsPath - at line #' . __LINE__);
-
-        /** @var WireFileTools $files */
-        $files = $this->wire('files');
-        // $bool = $files->mkdir($path, $recursive = true);
-    }
-
-    private function actionMigrateInstallSettings() {
-        $installConfigs = $this->getPadloperInstallSettings();
-        bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
-        $importInstallConfigs = [];
-        foreach ($installConfigs as $key => $value) {
-            $renamedKey = str_replace("padloper", "pwcommerce", $key);
-            $importInstallConfigs[$renamedKey] = $value;
-        }
-        bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
-
-        // TODO WE NEED TO RETRIEVE THEM BEFORE WE UNINSTALL PADLOPER BUT AFTER WE INSTALL PROCESSWIRE COMMERCE!
-        // SO SAVE TO CACHE?
-        // $this->cachePadloperInstallSettings($importInstallConfigs);
-        // save them
-        // $this->savePadloperInstallSettings($importInstallConfigs);
-    }
-
-    private function savePadloperInstallSettings($data) {
-        /** @var Modules $modules */
-        $modules = $this->wire('modules');
-        $configs = $modules->saveConfig(self::PADLOPER_PROCESS_MODULE, $data);
-        return $configs;
-    }
-    private function cachePadloperInstallSettings($data) {
-        /** @var WireCache $cache */
-        $cache = $this->wire('cache');
-        $cache->save(self::PADLOPER_PROCESS_MODULE, $data);
-    }
-
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INSTALL  ~~~~~~~~~~~~~~~~~~
-
-    public function ___install() {
-
-        // check if there is another page in admin with the name 'shop'. If so, abort installation
-        if ($this->installerOurModulePageAlreadyExists()) {
-            throw new WireException($this->_("Process PWCommerce: Installation aborted. A page with the name 'shop' already exists. This module needs that name. Please fix this then retry."));
-        }
-
-        // PWCOMMERCE PROCESS MODULE ADMIN PAGE
-        // create the page for this module (ProcessMigratePadloperToPWCommerce)
-        // it needs to use the template admin and it needs to have this module as its process
-        $page = new Page();
-        $page->template = 'admin';
-        $page->parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-        $page->title = self::PAGE_TITLE;
-        $page->name = self::PAGE_NAME;
-        $page->process = $this;
-        $page->save();
-        // -------------
-
-
-
-        // -------
-        // tell the user we created the page for this module
-        $this->message("Process MigratePadloperToPWCommerce: Created page {$page->path}");
-    }
-
-    public function ___uninstall() {
-        // find and delete the page we installed, locating it by the process field (which has the module ID)
-        // it would probably be sufficient just to locate by name, but this is just to be extra sure.
-        $moduleID = $this->wire('modules')->getModuleID($this);
-        $page = $this->wire('pages')->get("template=admin, process=$moduleID, name=" . self::PAGE_NAME);
-        // $page = $this->wire('pages')->get('template=admin, name='.self::PAGE_NAME);
-        if ($page->id) {
-            // if we found the page, let the user know and delete it
-            $this->message($this->_('Process MigratePadloperToPWCommerce: Deleted page ') . $page->path);
-            // @note: delete any child pages as well
-            $this->wire('pages')->delete($page, true);
-        }
-    }
-
-    private function installerOurModulePageAlreadyExists() {
-        $isPageExist = false;
-        // check if our process module's page already exists in Admin
-        $parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-        $page = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PAGE_NAME);
-        if ($page->id && $page->id > 0) {
-            $isPageExist = true;
-        }
-
-        return $isPageExist;
-    }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DEBUG  ~~~~~~~~~~~~~~~~~~
-
-    private function _debug() {
-        // TEST GET PADLOPER PROCESS PAGE
-        // $processPadloperShopPage = $this->getProcessPadloperShopPage();
-        // bd($processPadloperShopPage, __METHOD__ . ': $processPadloperShopPage - PADLOPER PROCESS PAGE - at line #' . __LINE__);
-
-        // TEST GET PADLOPER SHOP ROOT PAGE
-        // $padloperRootPage = $this->getPadloperRootPage();
-        // bd($padloperRootPage, __METHOD__ . ': $padloperRootPage - PADLOPER SHOP ROOT PAGE - at line #' . __LINE__);
-
-        // TEST GET PADLOPER TEMPLATES TO RENAME
-        // $padloperTemplates = $this->getPadloperTemplates();
-        // bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - PADLOPER TEMPLATES TO RENAME - at line #' . __LINE__);
-
-        // TEST RENAME PADLOPER TEMPLATES
-        // $this->actionMigrateTemplates();
-
-        // TEST GET PADLOPER FIELDS TO RENAME
-        // $padloperFields = $this->getPadloperFields();
-        // bdb($padloperFields, __METHOD__ . ': $padloperFields - PADLOPER FIELDS TO RENAME - at line #' . __LINE__);
-
-        // TEST RENAME PADLOPER FIELDS
-        // $this->actionMigrateFields();
-
-        // TEST GET PROCESS PADLOPER INSTALL SETTINGS TO IMPORT
-        // $installConfigs = $this->getPadloperInstallSettings();
-        // bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
-
-        // TEST IMPORT PROCESS PADLOPER INSTALL SETTINGS
-        // $this->actionMigrateInstallSettings();
-
-        // TEST GET PADLOPER TEMPLATE PARTIALS TO RENAME
-        // $templatePartialsFiles = $this->getPadloperTemplatePartials();
-        // bdb($templatePartialsFiles, __METHOD__ . ': $templatePartialsFiles - PADLOPER TEMPLATE PARTIALS TO RENAME - at line #' . __LINE__);
-
-        // TEST RENAME PADLOPER TEMPLATE PARTIALS
-        // $this->actionMigrateTemplatePartials();
-
-        // TEST GET PADLOPER SITE ASSETS TO RENAME
-        $padloperAssets = $this->getPadloperAssets();
-        bdb($padloperAssets, __METHOD__ . ': $padloperAssets - PADLOPER SITE ASSETS TO RENAME - at line #' . __LINE__);
-
-        // TEST RENAME PADLOPER SITE ASSETS
-        $this->actionMigrateAssets();
-    }
+	private const PAGE_NAME = 'migrate-padloper-to-pwcommerce';
+	private const PAGE_TITLE = 'Migrate Padloper to PWCommerce';
+	private const MIGRATION_SESSION_NAME = 'pwcommerce-migration';
+	private const PADLOPER_SHOP_NAME = 'shop';
+	private const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
+	private const PADLOPER_ROOT_PAGE_NAME = 'padloper';
+	private const PADLOPER_PROCESS_MODULE = 'ProcessPadloper';
+	private const PADLOPER_BACKEND_TEMPLATES_PATH = "padloper/backend/";
+	private const PADLOPER_PARTIAL_TEMPLATES_PATH = "padloper/";
+	private const PWCOMMERCE_PARTIAL_TEMPLATES_PATH = "pwcommerce/";
+	private const PWCOMMERCE_BACKEND_TEMPLATES_PATH = "pwcommerce/backend/";
+
+	private $migrationNotices = [];
+
+
+	public static function getModuleInfo() {
+
+		$moduleInfo =
+
+			[
+				'title' => __('Migrate Padloper to ProcessWire Commerce', __FILE__),
+				'summary' => __('Module to help migrate Padloper to ProcessWire Commerce', __FILE__),
+				'author' => 'Francis Otieno (Kongondo)',
+				'version' => "001",
+				'href' => 'http://kongondo.com',
+				// non-supusers need this permission before ProcessWire will load this module
+				'permission' => 'pwcommerce-migrate',
+				'singular' => true,
+				'requires' => [
+					'PHP>=8.2.0',
+					'ProcessWire>=3.0.200'
+				],
+				// Array of permissions that ProcessWire will install (and uninstall) automatically. Permissions should be in the format: array('permission-name' => 'Permission description').
+				'permissions' => [
+					'pwcommerce-migrate' => __('Permission to use Migrate Padloper to ProcessWire Commerce admin.', __FILE__),
+				],
+
+			];
+
+
+
+		// ------
+		return $moduleInfo;
+	}
+
+	public function __construct() {
+		parent::__construct();
+	}
+
+	public function init() {
+		parent::init();
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ EXECUTES  ~~~~~~~~~~~~~~~~~~
+
+	public function execute() {
+
+		$this->headline($this->_("Migrate Padloper to ProcessWire Commerce"));
+
+		$out = "<h3>" .
+			$this->_('Important Read')
+			. "</h3>";
+		$out .= "<p>" .
+
+			$this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
+
+			"</p>";
+
+		$this->_debug();
+
+		// -----
+		// NOTES
+		$out .= $this->renderNotes();
+
+		// #########
+
+		$errors = $this->runChecks();
+		if (!empty($errors)) {
+			$out .= "<h3>" .
+				$this->_('Error Encountered')
+				. "</h3>";
+			$out .= "Migration cannot work due to the following errors: {$errors}";
+		} else {
+			// GOOD TO GO
+			// set session
+			$this->setMigrationSession();
+			// render get started button
+			$out .= $this->renderStartMigration();
+		}
+
+		//--------------------
+		return $out;
+	}
+
+	public function executeGetStarted() {
+		$this->headline($this->_("Get Started"));
+		// TODO CHECK IF MIGRATION SESSION IS ON!
+		if (empty($this->isMigrationSessionValid())) {
+			$error = $this->_('Invalid Migration Session');
+			$this->error($error);
+			$this->session->redirect($this->page->url);
+		};
+		$out = "<p>GET STARTED!</p>";
+		return $out;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATORS  ~~~~~~~~~~~~~~~~~~
+
+	private function isInstalledModule($class) {
+		return $this->wire('modules')->isInstalled($class);
+	}
+
+	private function isMigrationSessionValid() {
+		$isValidMigrationSession = true;
+		// check if session is set
+		// check if session set is longer than 1 hour 
+		// TODO  time ok?
+		$migrationSession = $this->getMigrationSession();
+		bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+
+
+		if (empty($migrationSession)) {
+			$isValidMigrationSession = false;
+		} elseif (!empty($this->isStaleMigrationSession())) {
+			$isValidMigrationSession = false;
+		}
+
+		return $isValidMigrationSession;
+	}
+
+	private function isStaleMigrationSession() {
+		// NOTE TIMESTAMP
+		$migrationSession = (int) $this->getMigrationSession();
+		$currentTime = time();
+		// stale session is one that is more than 1 hour old
+		$isStaleSession = $currentTime - $migrationSession > 3600;
+		bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+		bd($currentTime, __METHOD__ . ': $currentTime - at line #' . __LINE__);
+		bd($isStaleSession, __METHOD__ . ': $isStaleSession - at line #' . __LINE__);
+		return $isStaleSession;
+	}
+
+	private function runChecks() {
+		$errorsArray = $this->getErrors();
+		$errorsString = "";
+		if (!empty($errorsArray)) {
+			$errorsString = implode(", ", $errorsArray);
+		}
+		return $errorsString;
+	}
+
+	private function getErrors() {
+
+		$errors = [];
+
+		$padloperClass = 'Padloper';
+		$pwCommerceClass = 'PwCommerce';
+
+
+		// is padloper installed
+		if (empty($this->isInstalledModule($padloperClass))) {
+			$errors[] = $this->_('Padloper install not found!');
+		}
+		// is pwcommerce installed
+		if (empty($this->isInstalledModule($pwCommerceClass))) {
+			$errors[] = $this->_('ProcessWire Commerce install not found!');
+		}
+
+
+		bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
+		return $errors;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SESSION  ~~~~~~~~~~~~~~~~~~
+
+	private function setMigrationSession() {
+		// TODO IF WE ALREADY HAVE A SESSION AND IT IS NOT MORE THAN 1 HOUR LONG? WE REUSE IT
+		if (!empty($this->isStaleMigrationSession())) {
+			$this->session->set(self::MIGRATION_SESSION_NAME, time());
+		}
+	}
+
+	private function getMigrationSession() {
+		$migrationSession = $this->session->get(self::MIGRATION_SESSION_NAME);
+		return $migrationSession;
+	}
+
+	private function removeMigrationSession() {
+		$this->session->remove(self::MIGRATION_SESSION_NAME);
+	}
+
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GETTERS  ~~~~~~~~~~~~~~~~~~
+
+	private function getPadloperPages() {
+		// TODO probably not needed! we only need the shop root page then get its children
+		// for children in main tree, no need to bother them
+	}
+	private function getPadloperTemplates(): TemplatesArray {
+		// $padloperTemplates = $this->wire('templates')->find("name%=padloper");
+
+		/** @var Templates $templates */
+		$templates = $this->wire('templates');
+
+		/** @var TemplatesArray $padloperTemplates */
+		$padloperTemplates = $templates->find("name^=padloper");
+		return $padloperTemplates;
+	}
+
+	private function getPadloperTemplateFiles() {
+		// TODO NOT IN USE?
+	}
+
+	private function getPadloperBackendTemplatePartials() {
+		// TODO ONLY NEEDED FOR 'backend'
+		// NOTE - AT THIS POINT, /site/templates/padloper/ has already been renamed to /site/templates/pwcommmerce/ !!!
+		// NOTE - what we want is to rename the files inside /site/templates/pwcommerce/backend/
+		$backendTemplatePartialsPath = $this->config->paths->templates . self::PWCOMMERCE_BACKEND_TEMPLATES_PATH;
+
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$backendTemplatePartialsFiles = $files->find($backendTemplatePartialsPath);
+		return $backendTemplatePartialsFiles;
+	}
+
+	private function getPadloperFields() {
+		// $padloperFields = $this->wire('fields')->find("name%=padloper");
+
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+
+		/** @var FieldsArray $padloperFields */
+		$padloperFields = $fields->find("name^=padloper");
+		return $padloperFields;
+	}
+
+	private function getPadloperAssetsFolder(): string {
+		$padloperAssetsFolderPath = $this->config->paths->templates . self::PADLOPER_PARTIAL_TEMPLATES_PATH;
+		bd($padloperAssetsFolderPath, __METHOD__ . ': $padloperAssetsFolderPath - PADLOPER SITE ASSETS FOLDER TO RENAME - at line #' . __LINE__);
+		return $padloperAssetsFolderPath;
+	}
+
+	private function getPadloperInstallSettings() {
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		$configs = $modules->getConfig(self::PADLOPER_PROCESS_MODULE);
+		return $configs;
+	}
+
+	private function getProcessPadloperShopPage() {
+		// ProcessPadloper page
+		// i.e. /admin/shop/
+		$parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$shopPage = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PADLOPER_SHOP_NAME);
+		return $shopPage;
+	}
+
+	private function getPadloperRootPage() {
+		// root page of all padloper pages
+		// child of the ProcessPadloper page
+		// i.e. /admin/shop/padloper/
+		$parent = $this->getProcessPadloperShopPage();
+		$rootPage = $this->wire('pages')->get("parent=$parent, template=padloper, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
+		return $rootPage;
+	}
+
+
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NOTES  ~~~~~~~~~~~~~~~~~~
+
+	private function renderNotes() {
+		$out = "<ol>";
+		foreach ($this->getNotes() as $note) {
+			$out .= "<li>{$note}</li>";
+		}
+		$out .= "</ol>";
+		return $out;
+	}
+
+	private function getNotes() {
+		$notes = [
+			$this->_('Usage of this tool is at your own risk.'),
+			$this->_('Create a whole backup of your site before getting started.'),
+			$this->_('Preferably, test on test server.'),
+			$this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
+			$this->_('Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!'),
+		];
+		return $notes;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MISC  ~~~~~~~~~~~~~~~~~~
+
+	private function renderStartMigration() {
+
+		$out = "<h3>" .
+			$this->_('Get Started')
+			. "</h3>";
+
+		$href = $this->page->url . "get-started/";
+		bd($href, __METHOD__ . ': $href - at line #' . __LINE__);
+		$options = [
+			'name' => 'pwmigrate_get_started',
+			'label' => $this->_('Get Started'),
+			'type' => 'button',
+			'href' => $href,
+		];
+		$field = $this->getButton($options);
+		$out .= $field->render();
+		return $out;
+	}
+
+	private function getButton($options) {
+
+		/** @var InputfieldButton $field */
+		$field = $this->wire('modules')->get('InputfieldButton');
+		$type = !empty($options['type']) ? $options['type'] : 'button';
+
+		$field->attr([
+			'name' => $options['name'],
+			'label' => $options['label'],
+			'type' => $type,
+
+		]);
+
+
+		if (!empty($options['href'])) {
+			$field->attr('href', $options['href']);
+		}
+
+		return $field;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
+
+	private function actionMigratePages() {
+	}
+	private function actionMigrateTemplates() {
+		// TODO ALSO NEED TO RENAME LABELS!
+		$padloperTemplates = $this->getPadloperTemplates();
+		bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - at line #' . __LINE__);
+		if (!empty($padloperTemplates->count())) {
+			// TODO MAYBE IN RUN CHECKS?
+			/** @var Template $template */
+			foreach ($padloperTemplates as $template) {
+				// bd($template, __METHOD__ . ': $template - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				$name = str_replace("padloper", "pwcommerce", $template->name);
+				bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				// $this->wire('templates')->rename($template, $name);
+			}
+		}
+	}
+	private function actionMigrateTemplateFiles() {
+		// TODO not needed?
+	}
+
+	private function actionMigrateBackendTemplatePartials() {
+		$backendTemplatePartialsFiles = $this->getPadloperBackendTemplatePartials();
+		bdb($backendTemplatePartialsFiles, __METHOD__ . ': $backendTemplatePartialsFiles - at line #' . __LINE__);
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		if (!empty($backendTemplatePartialsFiles)) {
+			// TODO RENAME THEM
+			foreach ($backendTemplatePartialsFiles as $oldName) {
+				$newName = str_replace("padloper", "pwcommerce", $oldName);
+				// TODO CATCH ERRORS?
+				// $bool = $files->rename($oldName,  $newName);
+				bd($oldName, __METHOD__ . ': $oldName - at line #' . __LINE__);
+				bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
+				// bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+			}
+		}
+	}
+
+	private function actionMigrateFields() {
+		$padloperFields = $this->getPadloperFields();
+		bdb($padloperFields, __METHOD__ . ': $padloperFields - at line #' . __LINE__);
+		if (!empty($padloperFields->count())) {
+			// TODO MAYBE IN RUN CHECKS?
+			/** @var Field $field */
+			foreach ($padloperFields as $field) {
+				$name = str_replace("padloper", "pwcommerce", $field->name);
+				$label = str_replace("Padloper", "PWCommerce", $field->label);
+
+
+				$description = null;
+
+				if (!empty($field->description)) {
+					$description = str_replace("padloper", "pwcommerce", $field->description);
+				}
+
+
+				// bd($name, __METHOD__ . ': $name - FOR RENAMED FIELD - at line #' . __LINE__);
+				// bd($label, __METHOD__ . ': $label - FOR RENAMED FIELD - at line #' . __LINE__);
+				// bd($description, __METHOD__ . ': $description - FOR RENAMED FIELD - at line #' . __LINE__);
+				// bd($field, __METHOD__ . ': $field - FOR RENAMED FIELD - at line #' . __LINE__);
+				$field->name = $name;
+				$field->label = $label;
+				if (!empty($description)) {
+					$field->description = $description;
+				}
+				// $this->wire('fields')->save($field);
+			}
+		}
+	}
+
+	private function actionPadloperAssetsFolder() {
+		$padloperAssetsFolder = $this->getPadloperAssetsFolder();
+		$newName = str_replace("padloper", "pwcommerce", $padloperAssetsFolder);
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+
+
+		$isExistAssetsFolder = $files->exists($padloperAssetsFolder);
+
+		if (!empty($isExistAssetsFolder)) {
+			// TODO CATCH ERRORS?
+			// $bool = $files->rename($padloperAssetsFolder,  $newName);
+		}
+
+
+		bd($padloperAssetsFolder, __METHOD__ . ': $padloperAssetsFolder - at line #' . __LINE__);
+		bd($isExistAssetsFolder, __METHOD__ . ': $isExistAssetsFolder - at line #' . __LINE__);
+		bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
+	}
+
+
+
+	private function actionMigrateInstallSettings() {
+		$installConfigs = $this->getPadloperInstallSettings();
+		bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		$importInstallConfigs = [];
+		foreach ($installConfigs as $key => $value) {
+			$renamedKey = str_replace("padloper", "pwcommerce", $key);
+			$importInstallConfigs[$renamedKey] = $value;
+		}
+		bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+
+		// TODO WE NEED TO RETRIEVE THEM BEFORE WE UNINSTALL PADLOPER BUT AFTER WE INSTALL PROCESSWIRE COMMERCE!
+		// SO SAVE TO CACHE?
+		// $this->cachePadloperInstallSettings($importInstallConfigs);
+		// save them
+		// $this->savePadloperInstallSettings($importInstallConfigs);
+	}
+
+	private function savePadloperInstallSettings($data) {
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		$configs = $modules->saveConfig(self::PADLOPER_PROCESS_MODULE, $data);
+		return $configs;
+	}
+	private function cachePadloperInstallSettings($data) {
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cache->save(self::PADLOPER_PROCESS_MODULE, $data);
+	}
+
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INSTALL  ~~~~~~~~~~~~~~~~~~
+
+	public function ___install() {
+
+		// check if there is another page in admin with the name 'shop'. If so, abort installation
+		if ($this->installerOurModulePageAlreadyExists()) {
+			throw new WireException($this->_("Process PWCommerce: Installation aborted. A page with the name 'shop' already exists. This module needs that name. Please fix this then retry."));
+		}
+
+		// PWCOMMERCE PROCESS MODULE ADMIN PAGE
+		// create the page for this module (ProcessMigratePadloperToPWCommerce)
+		// it needs to use the template admin and it needs to have this module as its process
+		$page = new Page();
+		$page->template = 'admin';
+		$page->parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$page->title = self::PAGE_TITLE;
+		$page->name = self::PAGE_NAME;
+		$page->process = $this;
+		$page->save();
+		// -------------
+
+
+
+		// -------
+		// tell the user we created the page for this module
+		$this->message("Process MigratePadloperToPWCommerce: Created page {$page->path}");
+	}
+
+	public function ___uninstall() {
+		// find and delete the page we installed, locating it by the process field (which has the module ID)
+		// it would probably be sufficient just to locate by name, but this is just to be extra sure.
+		$moduleID = $this->wire('modules')->getModuleID($this);
+		$page = $this->wire('pages')->get("template=admin, process=$moduleID, name=" . self::PAGE_NAME);
+		// $page = $this->wire('pages')->get('template=admin, name='.self::PAGE_NAME);
+		if ($page->id) {
+			// if we found the page, let the user know and delete it
+			$this->message($this->_('Process MigratePadloperToPWCommerce: Deleted page ') . $page->path);
+			// @note: delete any child pages as well
+			$this->wire('pages')->delete($page, true);
+		}
+	}
+
+	private function installerOurModulePageAlreadyExists() {
+		$isPageExist = false;
+		// check if our process module's page already exists in Admin
+		$parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$page = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PAGE_NAME);
+		if ($page->id && $page->id > 0) {
+			$isPageExist = true;
+		}
+
+		return $isPageExist;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DEBUG  ~~~~~~~~~~~~~~~~~~
+
+	private function _debug() {
+		// TEST GET PADLOPER PROCESS PAGE
+		// $processPadloperShopPage = $this->getProcessPadloperShopPage();
+		// bd($processPadloperShopPage, __METHOD__ . ': $processPadloperShopPage - PADLOPER PROCESS PAGE - at line #' . __LINE__);
+
+		// TEST GET PADLOPER SHOP ROOT PAGE
+		// $padloperRootPage = $this->getPadloperRootPage();
+		// bd($padloperRootPage, __METHOD__ . ': $padloperRootPage - PADLOPER SHOP ROOT PAGE - at line #' . __LINE__);
+
+		// TEST GET PADLOPER TEMPLATES TO RENAME
+		// $padloperTemplates = $this->getPadloperTemplates();
+		// bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - PADLOPER TEMPLATES TO RENAME - at line #' . __LINE__);
+
+		// TEST RENAME PADLOPER TEMPLATES
+		// $this->actionMigrateTemplates();
+
+		// TEST GET PADLOPER FIELDS TO RENAME
+		// $padloperFields = $this->getPadloperFields();
+		// bdb($padloperFields, __METHOD__ . ': $padloperFields - PADLOPER FIELDS TO RENAME - at line #' . __LINE__);
+
+		// TEST RENAME PADLOPER FIELDS
+		// $this->actionMigrateFields();
+
+		// TEST GET PROCESS PADLOPER INSTALL SETTINGS TO IMPORT
+		// $installConfigs = $this->getPadloperInstallSettings();
+		// bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+
+		// TEST IMPORT PROCESS PADLOPER INSTALL SETTINGS
+		// $this->actionMigrateInstallSettings();
+
+		// TEST GET PADLOPER SITE ASSETS FOLDER TO RENAME
+		// $padloperAssetsFolder = $this->getPadloperAssetsFolder();
+		// bd($padloperAssetsFolder, __METHOD__ . ': $padloperAssetsFolder - PADLOPER SITE ASSETS FOLDER TO RENAME - at line #' . __LINE__);
+
+		// TEST RENAME PADLOPER SITE ASSETS FOLDER
+		// $this->actionPadloperAssetsFolder();
+
+
+		// TEST GET PADLOPER BACKEND TEMPLATE PARTIALS TO RENAME
+		// $backendTemplatePartialsFiles = $this->getPadloperBackendTemplatePartials();
+		// bd($backendTemplatePartialsFiles, __METHOD__ . ': $backendTemplatePartialsFiles - PADLOPER BACKEND TEMPLATE PARTIALS TO RENAME - at line #' . __LINE__);
+
+		// TEST RENAME PADLOPER BACKEND TEMPLATE PARTIALS
+		// $this->actionMigrateBackendTemplatePartials();
+
+
+
+	}
 }
