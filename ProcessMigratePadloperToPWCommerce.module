@@ -29,7 +29,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PADLOPER_SHOP_NAME = 'shop';
 	private const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
 	private const PADLOPER_ROOT_PAGE_NAME = 'padloper';
+	private const PWCOMMERCE_TEMPORARY_ROOT_PARENT_NAME = 'temporary-shop';
 	private const PADLOPER_PROCESS_MODULE = 'ProcessPadloper';
+	private const PWCOMMERCE_PROCESS_MODULE = 'ProcessPWCommerce';
 	private const PADLOPER_BACKEND_TEMPLATES_PATH = "padloper/backend/";
 	private const PADLOPER_PARTIAL_TEMPLATES_PATH = "padloper/";
 	private const PWCOMMERCE_PARTIAL_TEMPLATES_PATH = "pwcommerce/";
@@ -289,6 +291,35 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $rootPage;
 	}
 
+	private function getPadloperTemporaryRootParent() {
+		// TEMPORARY root page of all padloper pages
+		// child of /admin/temporary-shop/
+		$parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$temporaryRootParent = $this->wire('pages')->get("parent=$parent, template=admin, include=all, name=" . self::PWCOMMERCE_TEMPORARY_ROOT_PARENT_NAME);
+		return $temporaryRootParent;
+	}
+
+	private function getPWCommerceProcessPage() {
+		// TODO CHANGE CONSTANT BELOW!
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		/** @var Process $process */
+		$process = $modules->get(self::PADLOPER_PROCESS_MODULE);
+		// PWCOMMERCE_PROCESS_MODULE
+		$processPage = $process->getProcessPage();
+		return $processPage;
+	}
+
+	private function getUninstallPadloperModulesNames() {
+		// NOTE: in order of uninstall
+		$padloperModules = [
+			'PadloperHooks',
+			'Padloper',
+			'ProcessPadloper',
+		];
+		return $padloperModules;
+	}
+
 
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NOTES  ~~~~~~~~~~~~~~~~~~
@@ -358,7 +389,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
 
 	private function actionMigratePages() {
+		// TODO DELETE IF NOT IN USE
 	}
+
+
 	private function actionMigrateTemplates() {
 		// TODO ALSO NEED TO RENAME LABELS!
 		$padloperTemplates = $this->getPadloperTemplates();
@@ -428,7 +462,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 	}
 
-	private function actionPadloperAssetsFolder() {
+	private function actionMigratePadloperAssetsFolder() {
 		$padloperAssetsFolder = $this->getPadloperAssetsFolder();
 		$newName = str_replace("padloper", "pwcommerce", $padloperAssetsFolder);
 		/** @var WireFileTools $files */
@@ -446,6 +480,57 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		bd($padloperAssetsFolder, __METHOD__ . ': $padloperAssetsFolder - at line #' . __LINE__);
 		bd($isExistAssetsFolder, __METHOD__ . ': $isExistAssetsFolder - at line #' . __LINE__);
 		bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
+	}
+
+	private function actionMigrateRootPage() {
+		$rootPage = $this->getPadloperRootPage();
+		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		// NOTE run after ProcessWire Commerce has been installed in order to get its Process Page!
+		// NOTE at this point, these has been moved to a temporary parent
+		// in order to circumvent the 'shop' name issue, i.e. needed by both Padloper and PW Commerce
+		$rootPage = $this->getPadloperRootPage();
+		$rootParent = $this->getPWCommerceProcessPage();
+		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		bd($rootParent, __METHOD__ . ': $rootParent - at line #' . __LINE__);
+		$rootPage->of(false);
+		$rootPage->parent = $rootParent;
+		// $rootPage->save();
+	}
+
+	private function actionMigrateTemporaryRootPage() {
+		$rootPage = $this->getPadloperRootPage();
+		$temporaryRootParent = $this->getPadloperTemporaryRootParent();
+		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		bd($temporaryRootParent, __METHOD__ . ': $temporaryRootParent - at line #' . __LINE__);
+		// NOTE run after ProcessWire Commerce has been installed in order to get its Process Page!
+		// NOTE at this point, these has been moved to a temporary parent
+		// in order to circumvent the 'shop' name issue, i.e. needed by both Padloper and PW Commerce
+		$rootPage->of(false);
+		$rootPage->parent = $temporaryRootParent;
+		// $rootPage->save();
+	}
+
+	private function actionMigrateCreateTemporaryRootParent() {
+		// TEMPORARY ROOT PARENT to hold the children of PADLOPER /admin/shop/, i.e. the Padloper Process Page
+		// this is so that we can uninstall ProcessPadloper without deleting shop pages!
+		$page = new Page();
+		$page->template = 'admin';
+		$page->parent = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$page->title = 'Temporary Shop';
+		$page->name = self::PWCOMMERCE_TEMPORARY_ROOT_PARENT_NAME;
+		// $page->save();
+	}
+
+	private function actionMigrateUninstallPadloperModules() {
+
+		$padloperModules = $this->getUninstallPadloperModulesNames();
+		bd($padloperModules, __METHOD__ . ': $padloperModules - at line #' . __LINE__);
+
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		foreach ($padloperModules as $padloperModule) {
+			// $bool = $modules->uninstall($padloperModule);
+		}
 	}
 
 
@@ -571,7 +656,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// bd($padloperAssetsFolder, __METHOD__ . ': $padloperAssetsFolder - PADLOPER SITE ASSETS FOLDER TO RENAME - at line #' . __LINE__);
 
 		// TEST RENAME PADLOPER SITE ASSETS FOLDER
-		// $this->actionPadloperAssetsFolder();
+		// $this->actionMigratePadloperAssetsFolder();
 
 
 		// TEST GET PADLOPER BACKEND TEMPLATE PARTIALS TO RENAME
@@ -581,7 +666,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// TEST RENAME PADLOPER BACKEND TEMPLATE PARTIALS
 		// $this->actionMigrateBackendTemplatePartials();
 
+		// TEST GET PADLOPER MODULES NAMES TO UNINSTALL
+		$padloperModules = $this->getUninstallPadloperModulesNames();
+		bd($padloperModules, __METHOD__ . ': $padloperModules - PADLOPER MODULES NAMES TO UNINSTALL - at line #' . __LINE__);
 
-
+		// TEST UNINSTALL PADLOPER MODULES
+		$this->actionMigrateUninstallPadloperModules();
 	}
 }
