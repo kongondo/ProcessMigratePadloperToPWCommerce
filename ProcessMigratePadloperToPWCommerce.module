@@ -29,6 +29,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PADLOPER_SHOP_NAME = 'shop';
 	private const PADLOPER_SHOP_REPLACEMENT_NAME = 'shop-2';
 	private const PADLOPER_ROOT_PAGE_NAME = 'padloper';
+	private const PWCOMMERCE_ROOT_PAGE_NAME = 'pwcommerce';
 	private const PWCOMMERCE_TEMPORARY_ROOT_PARENT_NAME = 'temporary-shop';
 	private const PADLOPER_PROCESS_MODULE = 'ProcessPadloper';
 	private const PWCOMMERCE_PROCESS_MODULE = 'ProcessPWCommerce';
@@ -36,6 +37,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PADLOPER_PARTIAL_TEMPLATES_PATH = "padloper/";
 	private const PWCOMMERCE_PARTIAL_TEMPLATES_PATH = "pwcommerce/";
 	private const PWCOMMERCE_BACKEND_TEMPLATES_PATH = "pwcommerce/backend/";
+	private const PADLOPER_CUSTOMER_ROLE_NAME = 'padloper-customer';
+	private const PWCOMMERCE_CUSTOMER_ROLE_NAME = 'pwcommerce-customer';
 
 	private $migrationNotices = [];
 
@@ -89,7 +92,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			. "</h3>";
 		$out .= "<p>" .
 
-			$this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
+			$this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. ItPlease carefully read and action the following notes!") .
 
 			"</p>";
 
@@ -261,6 +264,49 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $padloperFields;
 	}
 
+	private function getPadloperCustomFields(): WireArray {
+
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		$padloperCustomFields = $fields->find("name^=padloper, type%=padloper");
+		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - PADLOPER CUSTOM FIELDS WHOSE TYPE TO CHANGE - POST INSTALL PWCOMMERCE - at line #' . __LINE__);
+		return $padloperCustomFields;
+	}
+
+	private function getPWCommerceCustomFields(): WireArray {
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		$pwcommerceCustomFields = $fields->find("name^=pwcommerce, type%=pwcommerce");
+		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - PWCOMMERCE CUSTOM FIELDS WHOSE TYPE TO CHANGE TO - POST INSTALL PWCOMMERCE - at line #' . __LINE__);
+		return $pwcommerceCustomFields;
+	}
+
+	private function getPWCommerceCustomFieldsNames() {
+		$padloperCustomFieldsNames = [
+			'pwcommerce_customer',
+			'pwcommerce_customer_addresses',
+			'pwcommerce_discount',
+			'pwcommerce_discounts_apply_to',
+			'pwcommerce_discounts_eligibility',
+			'pwcommerce_download_settings',
+			'pwcommerce_notes',
+			'pwcommerce_order',
+			'pwcommerce_order_customer',
+			'pwcommerce_order_discounts',
+			'pwcommerce_order_line_item',
+			'pwcommerce_product_properties',
+			'pwcommerce_product_settings',
+			'pwcommerce_product_stock',
+			'pwcommerce_runtime_markup',
+			'pwcommerce_shipping_fee_settings',
+			'pwcommerce_shipping_rate',
+			'pwcommerce_tax_overrides',
+			'pwcommerce_tax_rates',
+		];
+		return $padloperCustomFieldsNames;
+	}
+
+
 	private function getPadloperAssetsFolder(): string {
 		$padloperAssetsFolderPath = $this->config->paths->templates . self::PADLOPER_PARTIAL_TEMPLATES_PATH;
 		bd($padloperAssetsFolderPath, __METHOD__ . ': $padloperAssetsFolderPath - PADLOPER SITE ASSETS FOLDER TO RENAME - at line #' . __LINE__);
@@ -310,6 +356,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $processPage;
 	}
 
+	private function getPadloperCustomerRole() {
+		/** @var Roles $roles */
+		$roles = $this->wire('roles');
+		$customerRole = $roles->get(self::PADLOPER_CUSTOMER_ROLE_NAME);
+		return $customerRole;
+	}
+
 	private function getUninstallPadloperModulesNames() {
 		// NOTE: in order of uninstall
 		$padloperModules = [
@@ -337,6 +390,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$notes = [
 			$this->_('Usage of this tool is at your own risk.'),
 			$this->_('Create a whole backup of your site before getting started.'),
+			$this->_('DO NOT MANUALLY UNINSTALL Padloper! This tool will do that for you. It will also uninstall all related Modules and Fields and preserve existing fields data.'),
+			$this->_('DO NOT MANUALLY INSTALL ProcessWire Commerce! This tool will do that for you. It will also install related Modules and Fields and import existing fields data.'),
 			$this->_('Preferably, test on test server.'),
 			$this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
 			$this->_('Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!'),
@@ -403,8 +458,25 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			foreach ($padloperTemplates as $template) {
 				// bd($template, __METHOD__ . ': $template - FOR RENAMED TEMPLATE - at line #' . __LINE__);
 				$name = str_replace("padloper", "pwcommerce", $template->name);
+				$label = str_replace("Padloper", "PWCommerce", $template->label);
+
+				$description = null;
+
+				if (!empty($template->description)) {
+					$description = str_replace("padloper", "pwcommerce", $template->description);
+				}
+
+
+
 				bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				bd($label, __METHOD__ . ': $label - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				bd($description, __METHOD__ . ': $description - FOR RENAMED TEMPLATE - at line #' . __LINE__);
 				// $this->wire('templates')->rename($template, $name);
+				$template->label = $label;
+				if (!empty($description)) {
+					$template->description = $description;
+				}
+				// $this->wire('template')->save($template);
 			}
 		}
 	}
@@ -462,6 +534,34 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 	}
 
+	private function actionMigrateCustomFieldsTypes() {
+
+		// the padlpoper custom fields (e.g. 'padloper_customer') whose TYPES need changing to PWCommerce ones
+		// NOTE - we want to retain the fields (db records) themselves
+		$padloperCustomFields = $this->getPadloperCustomFields();
+		// the PW commerce whose objects we will use to change the types of field above
+		// we use $field->name to match them
+		$pwcommerceCustomFields = $this->getPWCommerceCustomFields();
+
+
+		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
+		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - at line #' . __LINE__);
+
+		// $field = $field->setFieldtype($type);
+		// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
+		// $field->type
+
+		// TODO - WILL WE HAVE INSTALLED THE CUSTOM FIELDS FIRST?
+		// E.G. IF INSTALL HAS padloper_notes, we install pwcommerce_notes???
+
+		if(!empty($padloperCustomFields->count())){
+			foreach($padloperCustomFields as $padloperCustomField){
+				// get corresponding pw commerce field
+				// $pwcommerceField = 
+			}
+		}
+	}
+
 	private function actionMigratePadloperAssetsFolder() {
 		$padloperAssetsFolder = $this->getPadloperAssetsFolder();
 		$newName = str_replace("padloper", "pwcommerce", $padloperAssetsFolder);
@@ -494,6 +594,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		bd($rootParent, __METHOD__ . ': $rootParent - at line #' . __LINE__);
 		$rootPage->of(false);
 		$rootPage->parent = $rootParent;
+		$rootPage->title = 'PWCommerce';
+		$rootPage->name = self::PWCOMMERCE_ROOT_PAGE_NAME;
 		// $rootPage->save();
 	}
 
@@ -519,6 +621,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$page->title = 'Temporary Shop';
 		$page->name = self::PWCOMMERCE_TEMPORARY_ROOT_PARENT_NAME;
 		// $page->save();
+	}
+
+	private function actionMigrateCustomerRole() {
+		$customerRole = $this->getPadloperCustomerRole();
+		bd($customerRole, __METHOD__ . ': $customerRole - at line #' . __LINE__);
+		$customerRole->of(false);
+		$customerRole->name = self::PWCOMMERCE_CUSTOMER_ROLE_NAME;
+		// $customerRole->save();
+		bd($customerRole, __METHOD__ . ': $customerRole - AFTER RENAME - at line #' . __LINE__);
 	}
 
 	private function actionMigrateUninstallPadloperModules() {
@@ -648,6 +759,24 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// $installConfigs = $this->getPadloperInstallSettings();
 		// bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
 
+
+		// TODO ALSO NEED TO CHANGE THE FIELDS TYPES IF THEY ARE CUSTOM PADLOPER ONES!
+		// TODO NEEDS TO BE DONE AFTER PWCOMMERCE IS INSTALLED + ITS FIELDS ARE INSTALLED
+		// TODO BUT HOW WILL WE KNOW THE FIELDS TO INSTALL? MAYBE THEY SHOULD MANUALLY INSTALL PW COMMERCE? I.E. INCLUDING STAGE 2?
+		// WE CAN CHECK FIELDS TO INSTALL USING CONFIGS BUT THAT IS TEDIOUS?!
+
+
+		// TEST GET PADLOPER CUSTOM FIELDS
+		$padloperCustomFields = $this->getPadloperCustomFields();
+		$pwcommerceCustomFields = $this->getPWCommerceCustomFields();
+		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields -  PADLOPER CUSTOM FIELDS WHOSE TYPES TO CHANGE - at line #' . __LINE__);
+		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields -  PWCOMMERCE CUSTOM FIELDS WHOSE TYPES TO USE FOR CHANGE - at line #' . __LINE__);
+
+
+		// TEST CHANGE TYPE OF PADLOPER CUSTOM FIELDS
+		$this->actionMigrateCustomFieldsTypes();
+
+
 		// TEST IMPORT PROCESS PADLOPER INSTALL SETTINGS
 		// $this->actionMigrateInstallSettings();
 
@@ -667,10 +796,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// $this->actionMigrateBackendTemplatePartials();
 
 		// TEST GET PADLOPER MODULES NAMES TO UNINSTALL
-		$padloperModules = $this->getUninstallPadloperModulesNames();
-		bd($padloperModules, __METHOD__ . ': $padloperModules - PADLOPER MODULES NAMES TO UNINSTALL - at line #' . __LINE__);
+		// $padloperModules = $this->getUninstallPadloperModulesNames();
+		// bd($padloperModules, __METHOD__ . ': $padloperModules - PADLOPER MODULES NAMES TO UNINSTALL - at line #' . __LINE__);
 
 		// TEST UNINSTALL PADLOPER MODULES
-		$this->actionMigrateUninstallPadloperModules();
+		// $this->actionMigrateUninstallPadloperModules();
 	}
 }
