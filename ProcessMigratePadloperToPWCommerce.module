@@ -192,8 +192,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$errors[] = $this->_('Padloper install not found!');
 		}
 		// is pwcommerce installed
-		if (empty($this->isInstalledModule($pwCommerceClass))) {
-			$errors[] = $this->_('ProcessWire Commerce install not found!');
+		// IT SHOULDN'T!
+		if (!empty($this->isInstalledModule($pwCommerceClass))) {
+			$errors[] = $this->_('ProcessWire Commerce install found! Migration not possible');
 		}
 
 
@@ -412,6 +413,12 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$this->_('Get Started')
 			. "</h3>";
 
+		$out .= "<p>" .
+
+			$this->_("Click the button to get started with the migration.") .
+			"</p>";
+
+
 		$href = $this->page->url . "get-started/";
 		bd($href, __METHOD__ . ': $href - at line #' . __LINE__);
 		$options = [
@@ -421,6 +428,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			'href' => $href,
 		];
 		$field = $this->getButton($options);
+
 		$out .= $field->render();
 		return $out;
 	}
@@ -433,11 +441,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		$field->attr([
 			'name' => $options['name'],
-			'label' => $options['label'],
+			'value' => $options['label'],
 			'type' => $type,
 
 		]);
-
 
 		if (!empty($options['href'])) {
 			$field->attr('href', $options['href']);
@@ -552,9 +559,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
 		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - at line #' . __LINE__);
 
-		// $field = $field->setFieldtype($type);
-		// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
-		// $field->type
+
 
 		// TODO - WILL WE HAVE INSTALLED THE CUSTOM FIELDS FIRST?
 		// E.G. IF INSTALL HAS padloper_notes, we install pwcommerce_notes???
@@ -575,6 +580,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				if (empty($module)) {
 					// TODO ERROR CATCH
 				} else {
+
+					// SET FIELDTYPE
+					// $field = $field->setFieldtype($type);
+					// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
+					// $field->type
+
+
 					// UNINSTALL PADLOPER CUSTOM FIELDTYPE
 					// TODO OK HERE OR ALWAYS?
 					// HERE OTHERWISE WILL 'HANG'?
@@ -675,7 +687,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			// TODO DOES THIS UNINSTALL ITS INPUTFIELD AS WELL?
 			$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
 			// $bool = $this->actionMigrateUninstallModule($padloperCustomField);
-			if(empty($bool)){
+			if (empty($bool)) {
 				// TODO NOT UNINSTALLED
 			}
 		}
