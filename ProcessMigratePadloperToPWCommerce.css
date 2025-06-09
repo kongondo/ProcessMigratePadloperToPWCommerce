@@ -10,7 +10,13 @@ table#migrate_padloper_pwcommerce td {
     border-collapse: collapse;
 }
 
-
 table#migrate_padloper_pwcommerce td {
     padding: 0.25rem 0.75rem;
+}
+
+table#migrate_padloper_pwcommerce td:nth-child(1) {
+   color: red
+}
+table#migrate_padloper_pwcommerce td:nth-child(2) {
+   color: green
 }
