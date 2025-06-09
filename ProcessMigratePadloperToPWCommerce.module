@@ -149,7 +149,6 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		if ($input->post('migration_run')) {
 			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
 			$this->handleMigrationRun();
-			
 		} elseif ($input->post('migration_cancel')) {
 			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
 			$this->handleMigrationCancel();
@@ -477,12 +476,118 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	private function renderMigrationChanges() {
-		$out = '<p>TWO DIVS/COLUMS/TABLE WITH BEFORE AND AFTER + INFO FOR MANUAL HOOK AND $padloper CHANGES</p>';
+
+		$out = "<h3>" .
+			$this->_('Automated Changes')
+			. "</h3>";
+		$out .= '<p>TWO DIVS/COLUMS/TABLE WITH BEFORE AND AFTER + INFO FOR MANUAL HOOK AND $padloper CHANGES</p>';
+
+		$out .= $this->renderMigrationAutomatedChangesList();
+
+
+
+		$out .= "<h3>" .
+			$this->_('Required Manual Changes')
+			. "</h3>";
+
+		$out .= $this->renderMigrationRequiredManualChanges();
+		return $out;
+	}
+
+	private function renderMigrationAutomatedChangesList() {
+
+		$tasksItems = $this->getMigrationChangesTasksItems();
+		$items = [
+			'before',
+			'after',
+			'notes',
+		];
+
+		$out =
+			"<table id='migrate_padloper_pwcommerce'>" .
+
+			"<thead>" .
+			"<tr>" .
+			"<th>" . $this->_('Before') . "</th>" .
+			"<th>" . $this->_('After') . "</th>" .
+			"<th>" . $this->_('Notes') . "</th>" .
+			"</tr>" .
+			"</thead>" .
+			"<tbody>";
+
+		foreach ($this->getMigrationChangesTasksList() as $key => $task) {
+			// task heading
+			$out .=
+				"<tr>
+				<th colspan='3'>{$task}</th>			
+				</tr>";
+			// task items
+			$out .= "<tr>";
+			// foreach ($tasksItems[$key] as $item) {
+			foreach ($items as $item) {
+				if ($item === 'before') {
+					// BEFORE
+					$taskItems = $this->renderSingleTaskItems($key);
+				} elseif ($item === 'notes') {
+					// NOTES
+					// TODO GET NOTES!
+					// $taskItems = $this->renderSingleTaskItems($key);
+					$taskItems = "";
+				} else {
+					// AFTER
+					$taskItems = $this->renderSingleTaskItems($key, false);
+				}
+				// populate the TD
+				$out .= "<td>{$taskItems}</td>";
+			}
+			$out .= "</tr>";
+		}
+
+
+
+
+		$out .=
+			"<tbody>" .
+			"</table>";
+
+		return $out;
+	}
+
+	private function renderMigrationRequiredManualChanges() {
+
+		$changesNotice = $this->_('Please note that you will need to make some changes to your template files. These are outlined below.');
+
+		$changesTemplateFiles = $this->_("Template Files: All instances of '\$padloper' should be replaced by '\$pwcommerce'. For instance '\$padloper->getCart()' should become '\$pwcommerce->getCart()'.");
+
+		$changesHooks = $this->_("Hooks: Your hooks, e.g. in ready.php should be renamed as follows: All instances of 'Padloper::someHookedMethod' should become 'PwCommerce::someHookedMethod'. Please note the spelling is case-sensitive.");
+		$out =
+
+			"<p>" .
+
+			$changesNotice .
+			"</p>" .
+
+			"<ol>" .
+			"<li>" . $changesTemplateFiles . "</li>" .
+			"<li>" . $changesHooks . "</li>" .
+
+			"</ol>";
+
+		return $out;
+	}
+
+	private function renderSingleTaskItems($task, $isBefore = true) {
+		$out = "<ol>";
+		$taskItems = $this->getMigrationChangesBeforeItems($task);
+		foreach ($taskItems as $taskItem) {
+			$itemStr = $isBefore ? $taskItem : $this->getMigrationChangeRename($taskItem);
+			$out .= "<li>{$itemStr}</li>";
+		}
+		$out .= "</ol>";
 		return $out;
 	}
 
 	private function renderMigrationButtons() {
-		$out = "<p>Cancel (secondary) and Run Migation buttons. Cancel redirects to home page + message? Or listen to the post then show the message? Run also listens to post then starts migration</p>";
 
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
@@ -512,7 +617,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$field = $this->getButton($options);
 		$form->add($field);
 
-		$out .= $form->render();
+		$out = $form->render();
 
 		return $out;
 	}
@@ -539,6 +644,47 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 
 		return $field;
+	}
+
+	private function getMigrationChangesTasksList() {
+		$tasksList = [
+			'templates' => $this->_('Templates'),
+			'fields' => $this->_('Fields'),
+			'field_types' => $this->_('Fieldtypes'),
+			'pages' => $this->_('Templates'),
+			'roles' => $this->_('Roles'),
+			'assets' => $this->_('Assets'),
+			'install_settings' => $this->_('Install Settings'),
+		];
+
+		return $tasksList;
+	}
+
+	private function getMigrationChangesTasksItems() {
+		$subTasksList = [
+			'templates' => $this->getPadloperTemplates(),
+			'fields' => $this->getPadloperFields(),
+			'field_types' => $this->_('Fieldtypes'),
+			'pages' => $this->_('Templates'),
+			'roles' => [$this->getPadloperCustomerRole()->name],
+			'assets' => $this->_('Assets'),
+			'install_settings' => $this->_('Assets'),
+		];
+
+		return $subTasksList;
+	}
+
+	private function getMigrationChangesBeforeItems($task) {
+		$allTasksItems = $this->getMigrationChangesTasksItems();
+		$taskItems = $allTasksItems[$task];
+		return $taskItems;
+	}
+
+	private function getMigrationChangeRename($item){
+		$search = ['Padloper', 'padloper', 'PADLOPER'];
+		$replace = ['PWCommerce', 'pwcommerce', 'PWCOMMERCE'];
+		$renamedItem = str_replace($search, $replace, $item);
+		return $renamedItem;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
@@ -856,7 +1002,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$this->session->redirect($this->page->url);
 	}
 
-	private function handleMigrationRun(){
+	private function handleMigrationRun() {
 		// TODO RUN ACTION MIGRATION
 		exit('got the post TO RUN!');
 	}
