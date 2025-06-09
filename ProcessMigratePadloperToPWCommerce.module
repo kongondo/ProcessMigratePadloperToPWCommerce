@@ -288,6 +288,18 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// TODO ONLY NEEDED FOR 'backend'
 		// NOTE - AT THIS POINT, /site/templates/padloper/ has already been renamed to /site/templates/pwcommmerce/ !!!
 		// NOTE - what we want is to rename the files inside /site/templates/pwcommerce/backend/
+		$backendTemplatePartialsPath = $this->config->paths->templates . self::PADLOPER_BACKEND_TEMPLATES_PATH;
+
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$backendTemplatePartialsFiles = $files->find($backendTemplatePartialsPath);
+		return $backendTemplatePartialsFiles;
+	}
+
+	private function getPWCommerceBackendTemplatePartials() {
+		// TODO ONLY NEEDED FOR 'backend'
+		// NOTE - AT THIS POINT, /site/templates/padloper/ has already been renamed to /site/templates/pwcommmerce/ !!!
+		// NOTE - what we want is to rename the files inside /site/templates/pwcommerce/backend/
 		$backendTemplatePartialsPath = $this->config->paths->templates . self::PWCOMMERCE_BACKEND_TEMPLATES_PATH;
 
 		/** @var WireFileTools $files */
@@ -480,11 +492,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$out = "<h3>" .
 			$this->_('Automated Changes')
 			. "</h3>";
-		$out .= '<p>TWO DIVS/COLUMS/TABLE WITH BEFORE AND AFTER + INFO FOR MANUAL HOOK AND $padloper CHANGES</p>';
+		$out .= '<p>' .
+
+			$this->_('Please note that Templates, Fields, Roles, and Assets will be RENAMED, Fieldtypes will be REASSIGNED, Pages will be REPARENTED and settings will be REAPPLIED.') .
+
+			'</p>';
 
 		$out .= $this->renderMigrationAutomatedChangesList();
-
-
 
 		$out .= "<h3>" .
 			$this->_('Required Manual Changes')
@@ -496,12 +510,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function renderMigrationAutomatedChangesList() {
 
-		$tasksItems = $this->getMigrationChangesTasksItems();
 		$items = [
 			'before',
 			'after',
 			'notes',
 		];
+
+
+		$allTasksItems = $this->getMigrationChangesTasksItems();
+		bd($allTasksItems, __METHOD__ . ': $allTasksItems - at line #' . __LINE__);
 
 		$out =
 			"<table id='migrate_padloper_pwcommerce'>" .
@@ -515,11 +532,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			"</thead>" .
 			"<tbody>";
 
-		foreach ($this->getMigrationChangesTasksList() as $key => $task) {
+		foreach ($this->getMigrationChangesTasksList() as $task => $taskHeading) {
+
+
+			$taskItems = $allTasksItems[$task];
+
 			// task heading
 			$out .=
 				"<tr>
-				<th colspan='3'>{$task}</th>			
+				<th colspan='3'>{$taskHeading}</th>			
 				</tr>";
 			// task items
 			$out .= "<tr>";
@@ -527,18 +548,18 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			foreach ($items as $item) {
 				if ($item === 'before') {
 					// BEFORE
-					$taskItems = $this->renderSingleTaskItems($key);
+					$taskItemsList = $this->renderSingleTaskItems($task, $taskItems);
 				} elseif ($item === 'notes') {
 					// NOTES
 					// TODO GET NOTES!
 					// $taskItems = $this->renderSingleTaskItems($key);
-					$taskItems = "";
+					$taskItemsList = "";
 				} else {
 					// AFTER
-					$taskItems = $this->renderSingleTaskItems($key, false);
+					$taskItemsList = $this->renderSingleTaskItems($task, $taskItems, false);
 				}
 				// populate the TD
-				$out .= "<td>{$taskItems}</td>";
+				$out .= "<td>{$taskItemsList}</td>";
 			}
 			$out .= "</tr>";
 		}
@@ -576,11 +597,37 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $out;
 	}
 
-	private function renderSingleTaskItems($task, $isBefore = true) {
+	private function renderSingleTaskItems($task, $taskItems, $isBefore = true) {
 		$out = "<ol>";
-		$taskItems = $this->getMigrationChangesBeforeItems($task);
+
+		if ($task === 'roles') {
+
+
+			bd($taskItems, __METHOD__ . ': $taskItems - at line #' . __LINE__);
+			bd($task, __METHOD__ . ': $task - at line #' . __LINE__);
+		}
+
+
 		foreach ($taskItems as $taskItem) {
-			$itemStr = $isBefore ? $taskItem : $this->getMigrationChangeRename($taskItem);
+
+			if ($task === 'fieldtypes') {
+				// if fieldtypes, we get the 'type'
+				$itemStr = $this->getClassShortName($taskItem->type);
+			} elseif ($task === 'pages') {
+				// path if pages
+				$itemStr = $taskItem->path;
+			} elseif ($task === 'assets') {
+				$itemStr = $taskItem;
+			} elseif ($task === 'install_settings') {
+				// json if configs
+				$itemStr = json_encode($taskItem, JSON_PRETTY_PRINT);
+			} else {
+				// use name for templates, fields and roles
+				$itemStr = $taskItem->name;
+			}
+
+			// Padloper vs PWCommerce
+			$itemStr = $isBefore ? $itemStr : $this->getMigrationChangeRename($itemStr);
 			$out .= "<li>{$itemStr}</li>";
 		}
 		$out .= "</ol>";
@@ -650,8 +697,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$tasksList = [
 			'templates' => $this->_('Templates'),
 			'fields' => $this->_('Fields'),
-			'field_types' => $this->_('Fieldtypes'),
-			'pages' => $this->_('Templates'),
+			'fieldtypes' => $this->_('Fieldtypes'),
+			'pages' => $this->_('Pages'),
 			'roles' => $this->_('Roles'),
 			'assets' => $this->_('Assets'),
 			'install_settings' => $this->_('Install Settings'),
@@ -661,14 +708,21 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	private function getMigrationChangesTasksItems() {
+		// assets folder
+		$assets = [
+			$this->getPadloperAssetsFolder()
+		];
+		// /site/templates/padloper/backend/*.* partials
+		$assets = array_merge($assets,  $this->getPadloperBackendTemplatePartials());
+
 		$subTasksList = [
 			'templates' => $this->getPadloperTemplates(),
 			'fields' => $this->getPadloperFields(),
-			'field_types' => $this->_('Fieldtypes'),
-			'pages' => $this->_('Templates'),
-			'roles' => [$this->getPadloperCustomerRole()->name],
-			'assets' => $this->_('Assets'),
-			'install_settings' => $this->_('Assets'),
+			'fieldtypes' => $this->getPadloperCustomFields(),
+			'pages' => [$this->getPadloperRootPage()],
+			'roles' => [$this->getPadloperCustomerRole()],
+			'assets' => $assets,
+			'install_settings' => $this->getPadloperInstallSettings(),
 		];
 
 		return $subTasksList;
@@ -680,7 +734,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $taskItems;
 	}
 
-	private function getMigrationChangeRename($item){
+	private function getMigrationChangeRename($item) {
 		$search = ['Padloper', 'padloper', 'PADLOPER'];
 		$replace = ['PWCommerce', 'pwcommerce', 'PWCOMMERCE'];
 		$renamedItem = str_replace($search, $replace, $item);
@@ -737,7 +791,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	private function actionMigrateBackendTemplatePartials() {
-		$backendTemplatePartialsFiles = $this->getPadloperBackendTemplatePartials();
+		// NOTE - AT THIS POINT, /site/templates/padloper/ has already been renamed to /site/templates/pwcommmerce/ !!!
+		// NOTE - what we want is to rename the files inside /site/templates/pwcommerce/backend/
+		$backendTemplatePartialsFiles = $this->getPWCommerceBackendTemplatePartials();
 		bdb($backendTemplatePartialsFiles, __METHOD__ . ': $backendTemplatePartialsFiles - at line #' . __LINE__);
 		/** @var WireFileTools $files */
 		$files = $this->wire('files');
@@ -1099,14 +1155,14 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 
 		// TEST GET PADLOPER CUSTOM FIELDS
-		$padloperCustomFields = $this->getPadloperCustomFields();
-		$pwcommerceCustomFields = $this->getPWCommerceCustomFields();
-		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields -  PADLOPER CUSTOM FIELDS WHOSE TYPES TO CHANGE - at line #' . __LINE__);
-		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields -  PWCOMMERCE CUSTOM FIELDS WHOSE TYPES TO USE FOR CHANGE - at line #' . __LINE__);
+		// $padloperCustomFields = $this->getPadloperCustomFields();
+		// $pwcommerceCustomFields = $this->getPWCommerceCustomFields();
+		// bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields -  PADLOPER CUSTOM FIELDS WHOSE TYPES TO CHANGE - at line #' . __LINE__);
+		// bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields -  PWCOMMERCE CUSTOM FIELDS WHOSE TYPES TO USE FOR CHANGE - at line #' . __LINE__);
 
 
 		// TEST CHANGE TYPE OF PADLOPER CUSTOM FIELDS
-		$this->actionMigrateCustomFieldsTypes();
+		// $this->actionMigrateCustomFieldsTypes();
 
 
 		// TEST IMPORT PROCESS PADLOPER INSTALL SETTINGS
