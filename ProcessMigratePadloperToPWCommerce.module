@@ -123,6 +123,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	public function executeGetStarted() {
+		// TODO DELETE NO LONGER IN USE
 		$this->headline($this->_("Get Started"));
 		// TODO CHECK IF MIGRATION SESSION IS ON!
 		if (empty($this->isMigrationSessionValid())) {
@@ -130,8 +131,50 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$this->error($error);
 			$this->session->redirect($this->page->url);
 		};
+		// TODO SHOW WHAT'S TO BE DONE + WHAT REQUIRES MANUAL CHANGES, E.G. $padloper and hooks, i.e. PADLOPER::someMethod in ready.php becomes PwCommerce:;someMethod. Note case!
 		$out = "<p>GET STARTED!</p>";
 		return $out;
+	}
+
+	public function executeMigrate() {
+		$this->headline($this->_("Run Migration"));
+		// TODO CHECK IF MIGRATION SESSION IS ON!
+		if (empty($this->isMigrationSessionValid())) {
+			$error = $this->_('Invalid Migration Session');
+			$this->error($error);
+			$this->session->redirect($this->page->url);
+		};
+
+		$input = $this->input;
+		if ($input->post('migration_run')) {
+			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
+			$this->handleMigrationRun();
+			
+		} elseif ($input->post('migration_cancel')) {
+			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
+			$this->handleMigrationCancel();
+		}
+		// TODO TWO BUTTONS; CANCEL (secondary button)-> HOME; RUN MIGRATION -> SENDS POST; LISTEN TO IT!
+		// TODO cache success and errors (WILL SELF-EXPIRE)
+
+		$message = $this->_("Migration is ready to start. Please review and proceed when ready. If the information below does not look right please cancel. Make manual changes if necessary. If happy to proceed please click the run migration button. The migration process might take a while. Please be patient.");
+
+
+		// show message
+		$out = "<p>" .
+			$message .
+
+			"</p>" .
+			// show migration changes: BEFORE VS AFTER
+			$this->renderMigrationChanges() .
+			// show RUN AND CANCEL BUTTONs
+			$this->renderMigrationButtons();
+		return $out;
+	}
+
+	public function executeFinishedMigration() {
+		$this->headline($this->_("Migration Finished"));
+		// TODO SHOW SUCCESS AND/OR ERRORS - SAVED TO CACHE. CACHE WILL SELF EXPIRE
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATORS  ~~~~~~~~~~~~~~~~~~
@@ -419,7 +462,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			"</p>";
 
 
-		$href = $this->page->url . "get-started/";
+		$href = $this->page->url . "migrate/";
 		bd($href, __METHOD__ . ': $href - at line #' . __LINE__);
 		$options = [
 			'name' => 'pwmigrate_get_started',
@@ -430,6 +473,47 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$field = $this->getButton($options);
 
 		$out .= $field->render();
+		return $out;
+	}
+
+	private function renderMigrationChanges() {
+		$out = '<p>TWO DIVS/COLUMS/TABLE WITH BEFORE AND AFTER + INFO FOR MANUAL HOOK AND $padloper CHANGES</p>';
+		return $out;
+	}
+
+	private function renderMigrationButtons() {
+		$out = "<p>Cancel (secondary) and Run Migation buttons. Cancel redirects to home page + message? Or listen to the post then show the message? Run also listens to post then starts migration</p>";
+
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+
+		// migration form
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+
+		// run migration button
+		$options = [
+			'type' => 'submit',
+			'label' => 'Run Migration',
+			'name' => 'migration_run',
+		];
+
+		$field = $this->getButton($options);
+		$form->add($field);
+
+		// cancel button
+		$options = [
+			'is_secondary' => true,
+			'type' => 'submit',
+			'label' => 'Cancel Migration',
+			'name' => 'migration_cancel',
+		];
+
+		$field = $this->getButton($options);
+		$form->add($field);
+
+		$out .= $form->render();
+
 		return $out;
 	}
 
@@ -450,10 +534,20 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$field->attr('href', $options['href']);
 		}
 
+		if (!empty($options['is_secondary'])) {
+			$field->setSecondary();
+		}
+
 		return $field;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
+
+	private function actionRunMigration() {
+		// TODO THIS WILL RUN THE MIGRATION TOOLS BELOW, IN A PARTICULAR ORDER
+		// TODO EACH ACTION SHOULD 'RECORD' SUCCESS OR ERROR
+		// IN FINAL METHOD, WE SAVE THOSE TO CACHE
+	}
 
 	private function actionMigratePages() {
 		// TODO DELETE IF NOT IN USE
@@ -742,6 +836,29 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		/** @var WireCache $cache */
 		$cache = $this->wire('cache');
 		$cache->save(self::PADLOPER_PROCESS_MODULE, $data);
+	}
+
+	private function actionCacheMigrationNotices() {
+	}
+
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CACHE  ~~~~~~~~~~~~~~~~~~
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FORM HANDLERS  ~~~~~~~~~~~~~~~~~~
+
+	private function handleMigrationCancel() {
+		// remove migration session
+		$this->removeMigrationSession();
+		// show warning
+		$warning = $this->_('Migration session cancelled');
+		$this->warning($warning);
+		// redirect to home
+		$this->session->redirect($this->page->url);
+	}
+
+	private function handleMigrationRun(){
+		// TODO RUN ACTION MIGRATION
+		exit('got the post TO RUN!');
 	}
 
 
