@@ -92,7 +92,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			. "</h3>";
 		$out .= "<p>" .
 
-			$this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. ItPlease carefully read and action the following notes!") .
+			$this->_("This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!") .
 
 			"</p>";
 
@@ -503,7 +503,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		// other automated changes
 
-				$out .= "<h3>" .
+		$out .= "<h3>" .
 			$this->_('Other Automated Changes')
 			. "</h3>";
 		$out .= '<p>' .
