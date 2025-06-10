@@ -21,6 +21,8 @@ This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please c
 7. Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!
 8. Install this module, go to its dashboard (`Migrate Padloper to PWCommerce`) and follow the instructions.
 
+# License 
+
 ```
 The MIT License (MIT)
 
