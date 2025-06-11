@@ -173,7 +173,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	public function executeFinishedMigration() {
 		$this->headline($this->_("Migration Finished"));
 		// TODO SHOW SUCCESS AND/OR ERRORS - SAVED TO CACHE. CACHE WILL SELF EXPIRE
-		$migrationNotices = $this->migrationNotices;
+		$cacheName = self::PWCOMMERCE_MIGRATION_NOTICES_CACHE_NAME;
+		$migrationNotices = $this->getMigrateSavedCache($cacheName);
 		bdb($migrationNotices, __METHOD__ . ': $migrationNotices - at line #' . __LINE__);
 		$out = "<p>" .
 
@@ -285,6 +286,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function removeMigrationSession() {
 		$this->session->remove(self::MIGRATION_SESSION_NAME);
 	}
+
 
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GETTERS  ~~~~~~~~~~~~~~~~~~
@@ -407,12 +409,17 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $shopPage;
 	}
 
-	private function getPadloperRootPage() {
+	private function getPadloperRootPage($isPostRename = false) {
 		// root page of all padloper pages
 		// child of the ProcessPadloper page
 		// i.e. /admin/shop/padloper/
+		// NOTE: by this point, 'template=padloper' could be 'template=pwcommerce'
+		$templateName = $isPostRename ? 'pwcommerce' : 'padloper';
 		$parent = $this->getProcessPadloperShopPage();
-		$rootPage = $this->wire('pages')->get("parent=$parent, template=padloper, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
+		$rootPage = $this->wire('pages')->get("parent=$parent, template=$templateName, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
+
+		bd($parent, __METHOD__ . ': $parent - at line #' . __LINE__);
+		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
 		return $rootPage;
 	}
 
@@ -454,7 +461,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// NOTE: in order of uninstall
 		$padloperModules = [
 			'PadloperHooks',
-			'Padloper',
+			// NOTE - table not found issues
+			// 'Padloper',
 			'ProcessPadloper',
 		];
 		return $padloperModules;
@@ -473,6 +481,20 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function getClassShortName($object) {
 		$shortName = (new \ReflectionClass($object))->getShortName();
 		return $shortName;
+	}
+
+	private function getCachedExportedPadloperInstallSettings() {
+		$cacheName = self::PWCOMMERCE_IMPORTED_INSTALL_SETTINGS_CACHE_NAME;
+		$importedInstallSettings = $this->getMigrateSavedCache($cacheName);
+		return $importedInstallSettings;
+	}
+
+
+	private function getMigrateSavedCache($cacheName) {
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cachedValue = $cache->get($cacheName);
+		return $cachedValue;
 	}
 
 
@@ -1090,7 +1112,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				if (!empty($description)) {
 					$template->description = $description;
 				}
-				$bool = $this->wire('template')->save($template);
+				$bool = $this->wire('templates')->save($template);
 				// set notice for each template name
 				$this->setFormattedMigrationNotice('templates', $bool, $name);
 			}
@@ -1260,7 +1282,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	private function actionMigrateTemporaryRootPage() {
-		$rootPage = $this->getPadloperRootPage();
+		// NOTE: by this point, the template 'padloper' has been renamed to 'pwcommerce'
+		$rootPage = $this->getPadloperRootPage(true);
 		$temporaryRootParent = $this->getPadloperTemporaryRootParent();
 		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
 		bd($temporaryRootParent, __METHOD__ . ': $temporaryRootParent - at line #' . __LINE__);
@@ -1397,12 +1420,6 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $bool;
 	}
 
-	private function getCachedExportedPadloperInstallSettings() {
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
-		$importedInstallSettings = $cache->get(self::PWCOMMERCE_IMPORTED_INSTALL_SETTINGS_CACHE_NAME);
-		return $importedInstallSettings;
-	}
 
 
 	private function actionMigrateImportInstallSettings() {
@@ -1418,7 +1435,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function savePWCommerceInstallSettings($data) {
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
-		$bool = $modules->saveConfig(self::PADLOPER_PROCESS_MODULE, $data);
+		$bool = $modules->saveConfig(self::PWCOMMERCE_PROCESS_MODULE, $data);
 		return $bool;
 	}
 
