@@ -13,12 +13,12 @@ Process Module to help migrate Padloper to ProcessWire Commerce
 This tool will migrate your Padloper shop to ProcessWire Commerce shop. Please carefully read and action the following notes!
 
 1. Usage of this tool is at your own risk.
-2. Create a whole backup of your site before getting started.
-3. DO NOT MANUALLY UNINSTALL Padloper! This tool will do that for you. It will also uninstall all related Modules and Fields and preserve existing fields data.
-4. DO NOT MANUALLY INSTALL ProcessWire Commerce! This tool will do that for you. It will also install related Modules and Fields and import existing fields data.
-5. Preferably, test on test server.
-6. If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.
-7. Do not uninstall Padloper until after this script has finished successfully. Doing so will delete all your Padloper pages!
+2. Create a **whole backup of your site before getting started**.
+3. **DO NOT MANUALLY UNINSTALL Padloper!** This tool will do that for you. It will also uninstall all related Modules and Fields and preserve existing fields data.
+4. **DO NOT MANUALLY INSTALL ProcessWire Commerce!** This tool will do that for you. It will also install related Modules and Fields and import existing fields data. Otherwise, you risk losing all your data (pages deleted).
+5. Download and unzip ProcessWire Commerce to `/site/modules/`.
+6. Preferably, **test a migration on a test server first**.
+7. If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.
 8. Install this module, go to its dashboard (`Migrate Padloper to PWCommerce`) and follow the instructions.
 
 # License 
