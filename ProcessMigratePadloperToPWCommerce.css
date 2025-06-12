@@ -15,8 +15,31 @@ table#migrate_padloper_pwcommerce td {
 }
 
 table#migrate_padloper_pwcommerce td:nth-child(1) {
-   color: red
+    color: red
 }
+
 table#migrate_padloper_pwcommerce td:nth-child(2) {
-   color: green
+    color: green
+}
+
+ul#migrate_padloper_pwcommerce_notices {
+    list-style-type: none;
+}
+
+ul#migrate_padloper_pwcommerce_notices li span {
+    font-size: larger;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 10px;
+    display: block;
+}
+
+ul#migrate_padloper_pwcommerce_notices li span.migrate_padloper_pwcommerce_notice_error {
+    color: red;
+}
+
+ul#migrate_padloper_pwcommerce_notices li ol li span{
+    font-size: initial;
+    font-weight: normal;
 }
