@@ -176,27 +176,39 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$cacheName = self::PWCOMMERCE_MIGRATION_NOTICES_CACHE_NAME;
 		$migrationNotices = $this->getMigrateSavedCache($cacheName);
 		bdb($migrationNotices, __METHOD__ . ': $migrationNotices - at line #' . __LINE__);
-		$out = "<p>" .
 
-			$this->_('Migration process is complete. Please review the following notices.') .
-			"</p>";
+		if (empty($migrationNotices)) {
+			$out = "<p>" .
+				$this->_('Migration process is complete. For some reason we could not find notices about the migration. Please manually review that everything was properly migrated.') .
+				"</p>";
+		} else {
+			$out = "<p>" .
+				$this->_('Migration process is complete. Please review the following notices. Please check if you can manually resolve any errors.') .
+				"</p>";
 
-		$out .= "<ol>";
+			// notices
+			$out .= "<ul id='migrate_padloper_pwcommerce_notices'>";
 
-		foreach ($this->migrationNotices as $migrationNoticeTopic => $notices) {
-			$out .= "<li>" .
-				$migrationNoticeTopic;
-			// notices (nested)
-			$out .= "<ol>";
-			foreach ($notices as $notice) {
-				$out .= "<li>{$notice}</li>";
+			foreach ($migrationNotices as $migrationNoticeTopic => $notices) {
+				$out .= "<li><span>" .
+					// notice heading
+					$this->getFormattedMigrationNotice($migrationNoticeTopic) .
+					"</span>";
+				// notices (nested)
+				$out .= "<ol>";
+				foreach ($notices as $noticeValues) {
+					$class = $noticeValues['is_success'] ? "" : " class='migrate_padloper_pwcommerce_notice_error'";
+					$out .= "<li><span{$class}>{$noticeValues['notice']}</span></li>";
+				}
+				// close nested list then outer list li
+				$out .= "</ol></li>";
 			}
 
-
-			$out .= "</ol></li>";
+			$out .= "</ul>";
 		}
 
-		$out .= "</ol>";
+
+
 		// --------
 		return $out;
 	}
@@ -345,11 +357,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $padloperFields;
 	}
 
-	private function getPadloperCustomFields(): WireArray {
+	private function getPadloperCustomFields($isPostRename = false): WireArray {
+		// NOTE: by this point, 'field->name^=padloper' could be 'field->name^=pwcommerce'
+		$fieldName = $isPostRename ? 'pwcommerce' : 'padloper';
 
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
-		$padloperCustomFields = $fields->find("name^=padloper, type%=padloper");
+		$padloperCustomFields = $fields->find("name^=$fieldName, type%=padloper");
 		// bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - PADLOPER CUSTOM FIELDS WHOSE TYPE TO CHANGE - POST INSTALL PWCOMMERCE - at line #' . __LINE__);
 		return $padloperCustomFields;
 	}
@@ -462,7 +476,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$padloperModules = [
 			'PadloperHooks',
 			// NOTE - table not found issues
-			// 'Padloper',
+			'Padloper',
 			'ProcessPadloper',
 		];
 		return $padloperModules;
@@ -473,7 +487,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$pwcommerceModules = [
 			'ProcessPWCommerce',
 			'PwCommerce',
-			'PwCommerceHooks',
+			'PWCommerceHooks',
 		];
 		return $pwcommerceModules;
 	}
@@ -812,7 +826,16 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 		// set migration notice
 		// NOTE: nested array
-		$this->migrationNotices[$task][] = $notice;
+		// $this->migrationNotices[$task][] = $notice;
+		$this->migrationNotices[$task][] = [
+			'notice' => $notice,
+			'is_success' => $isSuccess
+		];
+	}
+
+	private function getFormattedMigrationNotice($rawNotice) {
+		$formattedNotice = ucwords(str_replace("_", " ", $rawNotice));
+		return $formattedNotice;
 	}
 
 	private function getMigrationNotices() {
@@ -896,6 +919,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$notice = $notices[$task][$type];
 		return $notice;
 	}
+
+
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
 
@@ -1179,14 +1204,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateCustomFieldsTypes() {
 
 		// the padlpoper custom fields (e.g. 'padloper_customer') whose TYPES need changing to PWCommerce ones
+		// NOTE: by this point, 'field->name^=padloper' IS 'field->name^=pwcommerce'
 		// NOTE - we want to retain the fields (db records) themselves
-		$padloperCustomFields = $this->getPadloperCustomFields();
+		$padloperCustomFields = $this->getPadloperCustomFields(true);
 		// the PW commerce whose objects we will use to change the types of field above
 		// we use $field->name to match them
 		// $pwcommerceCustomFields = $this->getPWCommerceCustomFields();
 
 
-		// bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
+		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
 		// bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - at line #' . __LINE__);
 
 
@@ -1203,14 +1229,26 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 				// e.g. becomes 'FieldtypePWCommerceNotes'
 				$pwcommerceCustomFieldTypeClass = str_replace("Padloper", "PWCommerce", $padloperCustomFieldTypeClass);
-				// bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
-				// bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
-				// INSTALL THE PWCOMMERCE FIELD
-				// TODO CONFIRM IT INSTALLS INPUTFIELD ALSO
-				$module = $this->actionMigrateInstallModule($pwcommerceCustomFieldTypeClass);
+				bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
+				bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
 
-				// set notice for each custom field name installed
-				$this->setFormattedMigrationNotice('install_module', $module, $pwcommerceCustomFieldTypeClass);
+				$bool = false;
+				try {
+					// INSTALL MODULE
+					// INSTALL THE PWCOMMERCE FIELD
+					// TODO CONFIRM IT INSTALLS INPUTFIELD ALSO
+					// $bool = true;
+					$module = $this->actionMigrateInstallModule($pwcommerceCustomFieldTypeClass);
+					// set notice for each custom field name installed
+					$this->setFormattedMigrationNotice('install_module', $module, $pwcommerceCustomFieldTypeClass);
+					bd($module, __METHOD__ . ': $module - at line #' . __LINE__);
+				} catch (\Throwable $th) {
+					//throw $th;
+					$message = $th->getMessage();
+					$message .= " ($pwcommerceCustomFieldTypeClass)";
+					$this->setFormattedMigrationNotice('install_module', $bool, $message);
+					bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
+				}
 
 				if (empty($module)) {
 					// TODO ERROR CATCH?? exception will be thrown?
@@ -1338,10 +1376,18 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		bd($padloperModulesNames, __METHOD__ . ': $padloperModulesNames - at line #' . __LINE__);
 
 		foreach ($padloperModulesNames as $padloperModuleName) {
-			// UNINSTALL MODULE
-			$bool = $this->actionMigrateUninstallModule($padloperModuleName);
-			// set notice for each module name uninstalled
-			$this->setFormattedMigrationNotice('uninstall_module', $bool, $padloperModuleName);
+			$bool = false;
+			try {
+				// UNINSTALL MODULE
+				$bool = $this->actionMigrateUninstallModule($padloperModuleName);
+				// set notice for each module name uninstalled
+				$this->setFormattedMigrationNotice('uninstall_module', $bool, $padloperModuleName);
+			} catch (\Throwable $th) {
+				//throw $th;
+				$message = $th->getMessage();
+				$message .= " ($padloperModuleName)";
+				$this->setFormattedMigrationNotice('uninstall_module', $bool, $message);
+			}
 		}
 	}
 
@@ -1363,11 +1409,19 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateInstallPWCommerceModules() {
 		$pwcommerceModulesNames = $this->getInstallPWCommerceModulesNames();
 		bd($pwcommerceModulesNames, __METHOD__ . ': $pwcommerceModulesNames - at line #' . __LINE__);
-		foreach ($pwcommerceModulesNames as $pwcommerceModulesName) {
-			// INSTALL MODULE
-			$bool = $this->actionMigrateInstallModule($pwcommerceModulesName);
-			// set notice for each module name installed
-			$this->setFormattedMigrationNotice('install_module', $bool, $pwcommerceModulesName);
+		foreach ($pwcommerceModulesNames as $pwcommerceModuleName) {
+			$bool = false;
+			try {
+				// INSTALL MODULE
+				$bool = $this->actionMigrateInstallModule($pwcommerceModuleName);
+				// set notice for each module name installed
+				$this->setFormattedMigrationNotice('install_module', $bool, $pwcommerceModuleName);
+			} catch (\Throwable $th) {
+				//throw $th;
+				$message = $th->getMessage();
+				$message .= " ($pwcommerceModuleName)";
+				$this->setFormattedMigrationNotice('install_module', $bool, $message);
+			}
 		}
 	}
 
