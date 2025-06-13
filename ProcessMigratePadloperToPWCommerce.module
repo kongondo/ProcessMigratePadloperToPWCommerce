@@ -531,6 +531,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$this->_('DO NOT MANUALLY UNINSTALL Padloper! This tool will do that for you. It will also uninstall all related Modules and Fields and preserve existing fields data. Otherwise, you risk losing all your data (pages deleted).'),
 			$this->_('DO NOT MANUALLY INSTALL ProcessWire Commerce! This tool will do that for you. It will also install related Modules and Fields and import existing fields data.'),
 			$this->_("Download and unzip ProcessWire Commerce to '/site/modules/'."),
+			$this->_("Do a Modules Refresh so that ProcessWire will see ProcessWire Commerce modules. Make sure you see notices about 'found new module...'"),
 			$this->_('Preferably, test a migration on a test server first.'),
 			$this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
 		];
@@ -1058,6 +1059,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		
 		*/
 
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		$modules->refresh();
+
 
 		############# RUN MIGRATION! #################
 		// 1. Migrate Templates - @method: $this->actionMigrateTemplates()
@@ -1231,6 +1236,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				$pwcommerceCustomFieldTypeClass = str_replace("Padloper", "PWCommerce", $padloperCustomFieldTypeClass);
 				bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
 				bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
+				bd($padloperCustomField, __METHOD__ . ': $padloperCustomField - at line #' . __LINE__);
 
 				$bool = false;
 				try {
@@ -1256,6 +1262,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 					// SET/CHANGE FIELDTYPE
 					$field = $padloperCustomField->setFieldtype($pwcommerceCustomFieldTypeClass);
+					$bool = $this->wire('fields')->save($field);
 					// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
 					// $field->type
 					// CHECK IF FIELDTYPE WAS SET
