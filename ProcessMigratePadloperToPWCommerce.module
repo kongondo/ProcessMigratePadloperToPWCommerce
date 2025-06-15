@@ -278,7 +278,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 
 
-		bd($errors, __METHOD__ . ': $errors - at line #' . __LINE__);
+		
 		return $errors;
 	}
 
@@ -405,7 +405,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function getPadloperAssetsFolder(): string {
 		$padloperAssetsFolderPath = $this->config->paths->templates . self::PADLOPER_PARTIAL_TEMPLATES_PATH;
-		bd($padloperAssetsFolderPath, __METHOD__ . ': $padloperAssetsFolderPath - PADLOPER SITE ASSETS FOLDER TO RENAME - at line #' . __LINE__);
+		
 		return $padloperAssetsFolderPath;
 	}
 
@@ -1262,7 +1262,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 					$message = $th->getMessage();
 					$message .= " ($pwcommerceCustomFieldTypeClass)";
 					$this->setFormattedMigrationNotice('install_module', $bool, $message);
-					bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
+					
 				}
 
 				if (empty($module)) {
@@ -1294,7 +1294,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 						$message = $th->getMessage();
 						$message .= " ($pwcommerceCustomFieldTypeClass)";
 						$this->setFormattedMigrationNotice('fieldtypes', $bool, $message);
-						bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
+						
 					}
 
 					#############
@@ -1325,8 +1325,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$this->setFormattedMigrationNotice('assets', $bool, $newName);
 
 
-		bd($padloperAssetsFolder, __METHOD__ . ': $padloperAssetsFolder - at line #' . __LINE__);
-		bd($isExistAssetsFolder, __METHOD__ . ': $isExistAssetsFolder - at line #' . __LINE__);
+		
+		
 	}
 
 	private function actionMigrateCreateTemporaryRootParent() {
@@ -1415,7 +1415,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateUninstallPadloperModules() {
 
 		$padloperModulesNames = $this->getUninstallPadloperModulesNames();
-		bd($padloperModulesNames, __METHOD__ . ': $padloperModulesNames - at line #' . __LINE__);
+		
 
 		foreach ($padloperModulesNames as $padloperModuleName) {
 			$bool = false;
@@ -1439,7 +1439,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// this is because we cannot get them from fields since tyypes have changed
 		// e.g. 'padloper_customer' is now 'pwcommerce_customer' of type FieldtypePWCommerceCustomer
 		$padloperCustomFields = $this->installedPadloperCustomerFieldsNames;
-		bd($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
+		
 
 		/** @var Field $padloperCustomField */
 		foreach ($padloperCustomFields as $padloperCustomFieldTypeClass) {
@@ -1452,7 +1452,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function actionMigrateInstallPWCommerceModules() {
 		$pwcommerceModulesNames = $this->getInstallPWCommerceModulesNames();
-		bd($pwcommerceModulesNames, __METHOD__ . ': $pwcommerceModulesNames - at line #' . __LINE__);
+		
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 		foreach ($pwcommerceModulesNames as $pwcommerceModuleName) {
@@ -1461,8 +1461,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				// INSTALL MODULE
 				$module = $this->actionMigrateInstallModule($pwcommerceModuleName);
 				$bool = !empty($module);
-				bd($module, __METHOD__ . ': $module - at line #' . __LINE__);
-				bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+				
+				
 				// set notice for each module name installed
 				$this->setFormattedMigrationNotice('install_module', $bool, $pwcommerceModuleName);
 				// TODO testing why dependent modules reported as not installed but actually installed! i.e. PwCommerce and PwCommerceHooks
@@ -1473,8 +1473,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				$message = $th->getMessage();
 				$message .= " ($pwcommerceModuleName)";
 				$this->setFormattedMigrationNotice('install_module', $bool, $message);
-				bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
-				bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
+				
+				
 			}
 		}
 	}
