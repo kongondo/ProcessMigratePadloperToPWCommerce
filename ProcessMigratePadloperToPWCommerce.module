@@ -176,7 +176,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// TODO SHOW SUCCESS AND/OR ERRORS - SAVED TO CACHE. CACHE WILL SELF EXPIRE
 		$cacheName = self::PWCOMMERCE_MIGRATION_NOTICES_CACHE_NAME;
 		$migrationNotices = $this->getMigrateSavedCache($cacheName);
-		bdb($migrationNotices, __METHOD__ . ': $migrationNotices - at line #' . __LINE__);
+		
 
 		if (empty($migrationNotices)) {
 			$out = "<p>" .
@@ -373,7 +373,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
 		$pwcommerceCustomFields = $fields->find("name^=pwcommerce, type%=pwcommerce");
-		bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - PWCOMMERCE CUSTOM FIELDS WHOSE TYPE TO CHANGE TO - POST INSTALL PWCOMMERCE - at line #' . __LINE__);
+		
 		return $pwcommerceCustomFields;
 	}
 
@@ -1223,7 +1223,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// $pwcommerceCustomFields = $this->getPWCommerceCustomFields();
 
 
-		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
+		
 		
 
 
