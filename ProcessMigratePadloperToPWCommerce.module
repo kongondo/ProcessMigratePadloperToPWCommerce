@@ -365,7 +365,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
 		$padloperCustomFields = $fields->find("name^=$fieldName, type%=padloper");
-		// bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - PADLOPER CUSTOM FIELDS WHOSE TYPE TO CHANGE - POST INSTALL PWCOMMERCE - at line #' . __LINE__);
+		
 		return $padloperCustomFields;
 	}
 
@@ -1126,7 +1126,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateTemplates() {
 		// TODO ALSO NEED TO RENAME LABELS!
 		$padloperTemplates = $this->getPadloperTemplates();
-		// bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - at line #' . __LINE__);
+		
 		if (!empty($padloperTemplates->count())) {
 			/** @var Template $template */
 			foreach ($padloperTemplates as $template) {
@@ -1163,7 +1163,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// NOTE - AT THIS POINT, /site/templates/padloper/ has already been renamed to /site/templates/pwcommmerce/ !!!
 		// NOTE - what we want is to rename the files inside /site/templates/pwcommerce/backend/
 		$backendTemplatePartialsFiles = $this->getPWCommerceBackendTemplatePartials();
-		// bdb($backendTemplatePartialsFiles, __METHOD__ . ': $backendTemplatePartialsFiles - at line #' . __LINE__);
+		
 		/** @var WireFileTools $files */
 		$files = $this->wire('files');
 		if (!empty($backendTemplatePartialsFiles)) {
@@ -1183,7 +1183,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function actionMigrateFields() {
 		$padloperFields = $this->getPadloperFields();
-		// bdb($padloperFields, __METHOD__ . ': $padloperFields - at line #' . __LINE__);
+		
 		if (!empty($padloperFields->count())) {
 			/** @var Field $field */
 			foreach ($padloperFields as $field) {
@@ -1224,7 +1224,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 
 		bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
-		// bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields - at line #' . __LINE__);
+		
 
 
 
@@ -1499,7 +1499,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateExportPadloperInstallSettings() {
 		// NOTE THIS SAVES TO CACHE
 		$installConfigs = $this->getPadloperInstallSettings();
-		// bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		
 		$importInstallConfigs = [];
 		foreach ($installConfigs as $key => $value) {
 			// RENAME as needed
@@ -1507,7 +1507,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$renamedKey = str_replace("padloper", "pwcommerce", $key);
 			$importInstallConfigs[$renamedKey] = $value;
 		}
-		// bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		
 		// SAVE TO CACHE
 		$bool = $this->cacheExportedPadloperInstallSettings($importInstallConfigs);
 		// set notice for cache of install settings saved
@@ -1669,21 +1669,21 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		// TEST GET PADLOPER TEMPLATES TO RENAME
 		// $padloperTemplates = $this->getPadloperTemplates();
-		// bdb($padloperTemplates, __METHOD__ . ': $padloperTemplates - PADLOPER TEMPLATES TO RENAME - at line #' . __LINE__);
+		
 
 		// TEST RENAME PADLOPER TEMPLATES
 		// $this->actionMigrateTemplates();
 
 		// TEST GET PADLOPER FIELDS TO RENAME
 		// $padloperFields = $this->getPadloperFields();
-		// bdb($padloperFields, __METHOD__ . ': $padloperFields - PADLOPER FIELDS TO RENAME - at line #' . __LINE__);
+		
 
 		// TEST RENAME PADLOPER FIELDS
 		// $this->actionMigrateFields();
 
 		// TEST GET PROCESS PADLOPER INSTALL SETTINGS TO IMPORT
 		// $installConfigs = $this->getPadloperInstallSettings();
-		// bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		
 
 
 		// TODO ALSO NEED TO CHANGE THE FIELDS TYPES IF THEY ARE CUSTOM PADLOPER ONES!
@@ -1695,8 +1695,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// TEST GET PADLOPER CUSTOM FIELDS
 		// $padloperCustomFields = $this->getPadloperCustomFields();
 		// $pwcommerceCustomFields = $this->getPWCommerceCustomFields();
-		// bdb($padloperCustomFields, __METHOD__ . ': $padloperCustomFields -  PADLOPER CUSTOM FIELDS WHOSE TYPES TO CHANGE - at line #' . __LINE__);
-		// bdb($pwcommerceCustomFields, __METHOD__ . ': $pwcommerceCustomFields -  PWCOMMERCE CUSTOM FIELDS WHOSE TYPES TO USE FOR CHANGE - at line #' . __LINE__);
+		
+		
 
 
 		// TEST CHANGE TYPE OF PADLOPER CUSTOM FIELDS
