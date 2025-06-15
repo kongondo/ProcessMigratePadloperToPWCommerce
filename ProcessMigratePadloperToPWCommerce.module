@@ -41,6 +41,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PWCOMMERCE_CUSTOMER_ROLE_NAME = 'pwcommerce-customer';
 
 	private $migrationNotices = [];
+	private $installedPadloperCustomerFieldsNames = [];
 
 
 	public static function getModuleInfo() {
@@ -148,10 +149,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		$input = $this->input;
 		if ($input->post('migration_run')) {
-			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
+			// bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
 			$this->handleMigrationRun();
 		} elseif ($input->post('migration_cancel')) {
-			bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
+			// bd($input->post, __METHOD__ . ': $input->post - at line #' . __LINE__);
 			$this->handleMigrationCancel();
 		}
 
@@ -183,7 +184,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				"</p>";
 		} else {
 			$out = "<p>" .
-				$this->_('Migration process is complete. Please review the following notices. Please check if you can manually resolve any errors.') .
+				$this->_('Migration process is complete. Please review the following notices. Please check if you can manually resolve any errors. Please note there might be false positives.') .
 				"</p>";
 
 			// notices
@@ -225,7 +226,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// check if session set is longer than 1 hour 
 		// TODO  time ok?
 		$migrationSession = $this->getMigrationSession();
-		bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+		// bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
 
 
 		if (empty($migrationSession)) {
@@ -243,9 +244,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$currentTime = time();
 		// stale session is one that is more than 1 hour old
 		$isStaleSession = $currentTime - $migrationSession > 3600;
-		bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
-		bd($currentTime, __METHOD__ . ': $currentTime - at line #' . __LINE__);
-		bd($isStaleSession, __METHOD__ . ': $isStaleSession - at line #' . __LINE__);
+		// bd($migrationSession, __METHOD__ . ': $migrationSession - at line #' . __LINE__);
+		// bd($currentTime, __METHOD__ . ': $currentTime - at line #' . __LINE__);
+		// bd($isStaleSession, __METHOD__ . ': $isStaleSession - at line #' . __LINE__);
 		return $isStaleSession;
 	}
 
@@ -273,7 +274,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// is pwcommerce installed
 		// IT SHOULDN'T!
 		if (!empty($this->isInstalledModule($pwCommerceClass))) {
-			$errors[] = $this->_('ProcessWire Commerce install found! Migration not possible');
+			$errors[] = $this->_('ProcessWire Commerce install found! Migration not possible!');
 		}
 
 
@@ -432,8 +433,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$parent = $this->getProcessPadloperShopPage();
 		$rootPage = $this->wire('pages')->get("parent=$parent, template=$templateName, include=all, name=" . self::PADLOPER_ROOT_PAGE_NAME);
 
-		bd($parent, __METHOD__ . ': $parent - at line #' . __LINE__);
-		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		// bd($parent, __METHOD__ . ': $parent - at line #' . __LINE__);
+		// bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
 		return $rootPage;
 	}
 
@@ -487,7 +488,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$pwcommerceModules = [
 			'ProcessPWCommerce',
 			'PwCommerce',
-			'PWCommerceHooks',
+			'PwCommerceHooks',
 		];
 		return $pwcommerceModules;
 	}
@@ -534,6 +535,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$this->_("Do a Modules Refresh so that ProcessWire will see ProcessWire Commerce modules. Make sure you see notices about 'found new module...'"),
 			$this->_('Preferably, test a migration on a test server first.'),
 			$this->_('If the tests pass, it is still advisable to create a duplicate of your production site, run the migration there, create a database dump of the migrated site and use that to update your real production site.'),
+			$this->_('You might have to manually uninstall/install some Padloper/ProcessWire Commerce modules.'),
 		];
 		return $notes;
 	}
@@ -613,7 +615,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 
 		$allTasksItems = $this->getMigrationChangesTasksItems();
-		bd($allTasksItems, __METHOD__ . ': $allTasksItems - at line #' . __LINE__);
+		// bd($allTasksItems, __METHOD__ . ': $allTasksItems - at line #' . __LINE__);
 
 		$out =
 			"<table id='migrate_padloper_pwcommerce'>" .
@@ -702,6 +704,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			} else {
 				// use name for templates, fields and roles
 				$itemStr = $taskItem->name;
+				if (empty($itemStr)) {
+					// bd($itemStr, __METHOD__ . ': $itemStr - EMPTY NAME - at line #' . __LINE__);
+					$itemStr = $this->_('None found');
+				}
 			}
 
 			// Padloper vs PWCommerce
@@ -1134,9 +1140,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 					$description = str_replace("padloper", "pwcommerce", $template->description);
 				}
 
-				bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
-				bd($label, __METHOD__ . ': $label - FOR RENAMED TEMPLATE - at line #' . __LINE__);
-				bd($description, __METHOD__ . ': $description - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				// bd($name, __METHOD__ . ': $name - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				// bd($label, __METHOD__ . ': $label - FOR RENAMED TEMPLATE - at line #' . __LINE__);
+				// bd($description, __METHOD__ . ': $description - FOR RENAMED TEMPLATE - at line #' . __LINE__);
 				$this->wire('templates')->rename($template, $name);
 				$template->label = $label;
 				if (!empty($description)) {
@@ -1166,9 +1172,9 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				$newName = str_replace("padloper", "pwcommerce", $oldName);
 				// TODO CATCH ERRORS?
 				$bool = $files->rename($oldName,  $newName);
-				bd($oldName, __METHOD__ . ': $oldName - at line #' . __LINE__);
-				bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
-				bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+				// bd($oldName, __METHOD__ . ': $oldName - at line #' . __LINE__);
+				// bd($newName, __METHOD__ . ': $newName - at line #' . __LINE__);
+				// bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
 				// set notice for each template partial name
 				$this->setFormattedMigrationNotice('assets', $bool, $newName);
 			}
@@ -1232,11 +1238,12 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				// e.g. 'FieldtypePadloperNotes'
 				$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
 
+
 				// e.g. becomes 'FieldtypePWCommerceNotes'
 				$pwcommerceCustomFieldTypeClass = str_replace("Padloper", "PWCommerce", $padloperCustomFieldTypeClass);
-				bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
-				bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
-				bd($padloperCustomField, __METHOD__ . ': $padloperCustomField - at line #' . __LINE__);
+				// bd($padloperCustomFieldTypeClass, __METHOD__ . ': $padloperCustomFieldTypeClass - at line #' . __LINE__);
+				// bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
+				// bd($padloperCustomField, __METHOD__ . ': $padloperCustomField - at line #' . __LINE__);
 
 				$bool = false;
 				try {
@@ -1245,9 +1252,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 					// TODO CONFIRM IT INSTALLS INPUTFIELD ALSO
 					// $bool = true;
 					$module = $this->actionMigrateInstallModule($pwcommerceCustomFieldTypeClass);
+					$bool = !empty($module);
 					// set notice for each custom field name installed
-					$this->setFormattedMigrationNotice('install_module', $module, $pwcommerceCustomFieldTypeClass);
-					bd($module, __METHOD__ . ': $module - at line #' . __LINE__);
+					$this->setFormattedMigrationNotice('install_module', $bool, $pwcommerceCustomFieldTypeClass);
+					// bd($module, __METHOD__ . ': $module - at line #' . __LINE__);
+					// bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
 				} catch (\Throwable $th) {
 					//throw $th;
 					$message = $th->getMessage();
@@ -1260,19 +1269,33 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 					// TODO ERROR CATCH?? exception will be thrown?
 				} else {
 
-					// SET/CHANGE FIELDTYPE
-					$field = $padloperCustomField->setFieldtype($pwcommerceCustomFieldTypeClass);
-					$bool = $this->wire('fields')->save($field);
-					// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
-					// $field->type
-					// CHECK IF FIELDTYPE WAS SET
-					$newFieldTypeClass = $this->getClassShortName($field->type);
-					$bool = $newFieldTypeClass === $pwcommerceCustomFieldTypeClass;
-					// set notice for each custom field type reassigned
-					$this->setFormattedMigrationNotice('fieldtypes', $bool, $pwcommerceCustomFieldTypeClass);
-					bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
-					bd($newFieldTypeClass, __METHOD__ . ': $newFieldTypeClass - at line #' . __LINE__);
-					bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+
+
+					try {
+						// SET/CHANGE FIELDTYPE
+						$field = $padloperCustomField->setFieldtype($pwcommerceCustomFieldTypeClass);
+						$bool = $this->wire('fields')->save($field);
+						// type	string, Fieldtype Type should be either a Fieldtype object or the string name of a Fieldtype object.
+						// $field->type
+						// CHECK IF FIELDTYPE WAS SET
+						$newFieldTypeClass = $this->getClassShortName($field->type);
+						$bool = $newFieldTypeClass === $pwcommerceCustomFieldTypeClass;
+						// set notice for each custom field type reassigned
+						$this->setFormattedMigrationNotice('fieldtypes', $bool, $pwcommerceCustomFieldTypeClass);
+						// bd($pwcommerceCustomFieldTypeClass, __METHOD__ . ': $pwcommerceCustomFieldTypeClass - at line #' . __LINE__);
+						// bd($newFieldTypeClass, __METHOD__ . ': $newFieldTypeClass - at line #' . __LINE__);
+						// bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+						// ++++++++++++++
+						// track custom fieldtype names for uninstall later
+						$this->installedPadloperCustomerFieldsNames[] = $padloperCustomFieldTypeClass;
+					} catch (\Throwable $th) {
+						//throw $th;
+						$bool = false;
+						$message = $th->getMessage();
+						$message .= " ($pwcommerceCustomFieldTypeClass)";
+						$this->setFormattedMigrationNotice('fieldtypes', $bool, $message);
+						bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
+					}
 
 					#############
 					// NOTE: UNINSTALL PADLOPER CUSTOM FIELDTYPE will happen later
@@ -1330,8 +1353,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// NOTE: by this point, the template 'padloper' has been renamed to 'pwcommerce'
 		$rootPage = $this->getPadloperRootPage(true);
 		$temporaryRootParent = $this->getPadloperTemporaryRootParent();
-		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
-		bd($temporaryRootParent, __METHOD__ . ': $temporaryRootParent - at line #' . __LINE__);
+		// bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		// bd($temporaryRootParent, __METHOD__ . ': $temporaryRootParent - at line #' . __LINE__);
 		// NOTE run after ProcessWire Commerce has been installed in order to get its Process Page!
 		// NOTE at this point, these has been moved to a temporary parent
 		// in order to circumvent the 'shop' name issue, i.e. needed by both Padloper and PW Commerce
@@ -1353,8 +1376,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// the page name and title remain intact; we amend below
 		$rootPage = $this->getPWCommerceRootPageFromTemporaryRootParent();
 		$rootParent = $this->getPWCommerceProcessPage();
-		bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
-		bd($rootParent, __METHOD__ . ': $rootParent - at line #' . __LINE__);
+		// bd($rootPage, __METHOD__ . ': $rootPage - at line #' . __LINE__);
+		// bd($rootParent, __METHOD__ . ': $rootParent - at line #' . __LINE__);
 		$rootPage->of(false);
 		// reparent it
 		$rootPage->parent = $rootParent;
@@ -1368,13 +1391,25 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function actionMigrateCustomerRole() {
 		$customerRole = $this->getPadloperCustomerRole();
-		bd($customerRole, __METHOD__ . ': $customerRole - at line #' . __LINE__);
-		$customerRole->of(false);
-		$customerRole->name = self::PWCOMMERCE_CUSTOMER_ROLE_NAME;
-		$bool = $customerRole->save();
-		bd($customerRole, __METHOD__ . ': $customerRole - AFTER RENAME - at line #' . __LINE__);
-		// set notice customer role renamed
-		$this->setFormattedMigrationNotice('roles', $bool, $customerRole->name);
+		$padloperCustomerRoleName = self::PADLOPER_CUSTOMER_ROLE_NAME;
+		$bool = false;
+		// bd($customerRole, __METHOD__ . ': $customerRole - at line #' . __LINE__);
+		if (!wireInstanceOf($customerRole, 'NullPage')) {
+			$customerRole->of(false);
+			$customerRole->name = self::PWCOMMERCE_CUSTOMER_ROLE_NAME;
+			$bool = $customerRole->save();
+			// bd($customerRole, __METHOD__ . ': $customerRole - AFTER RENAME - at line #' . __LINE__);
+			// set notice customer role renamed
+			$this->setFormattedMigrationNotice('roles', $bool, $customerRole->name);
+		} else {
+			// bd($customerRole, __METHOD__ . ': $customerRole - NOT FOUND RENAME - at line #' . __LINE__);
+			$message  = "(" .
+				$padloperCustomerRoleName . " " .
+				$this->_('not found') .
+				")";
+			// set notice customer role not found
+			$this->setFormattedMigrationNotice('roles', $bool, $message);
+		}
 	}
 
 	private function actionMigrateUninstallPadloperModules() {
@@ -1400,14 +1435,16 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	private function actionMigrateUninstallPadloperCustomFields() {
 
-		$padloperCustomFields = $this->getPadloperCustomFields();
+		// NOTE - we get them from tracked names
+		// this is because we cannot get them from fields since tyypes have changed
+		// e.g. 'padloper_customer' is now 'pwcommerce_customer' of type FieldtypePWCommerceCustomer
+		$padloperCustomFields = $this->installedPadloperCustomerFieldsNames;
 		bd($padloperCustomFields, __METHOD__ . ': $padloperCustomFields - at line #' . __LINE__);
 
 		/** @var Field $padloperCustomField */
-		foreach ($padloperCustomFields as $padloperCustomField) {
-			// TODO DOES THIS UNINSTALL ITS INPUTFIELD AS WELL?
-			$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
-			$bool = $this->actionMigrateUninstallModule($padloperCustomField);
+		foreach ($padloperCustomFields as $padloperCustomFieldTypeClass) {
+			// TODO CONFIRM THIS UNINSTALL ITS INPUTFIELD AS WELL?
+			$bool = $this->actionMigrateUninstallModule($padloperCustomFieldTypeClass);
 			// set notice for each custom module name uninstalled
 			$this->setFormattedMigrationNotice('uninstall_module', $bool, $padloperCustomFieldTypeClass);
 		}
@@ -1416,25 +1453,35 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateInstallPWCommerceModules() {
 		$pwcommerceModulesNames = $this->getInstallPWCommerceModulesNames();
 		bd($pwcommerceModulesNames, __METHOD__ . ': $pwcommerceModulesNames - at line #' . __LINE__);
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
 		foreach ($pwcommerceModulesNames as $pwcommerceModuleName) {
 			$bool = false;
 			try {
 				// INSTALL MODULE
-				$bool = $this->actionMigrateInstallModule($pwcommerceModuleName);
+				$module = $this->actionMigrateInstallModule($pwcommerceModuleName);
+				$bool = !empty($module);
+				bd($module, __METHOD__ . ': $module - at line #' . __LINE__);
+				bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
 				// set notice for each module name installed
 				$this->setFormattedMigrationNotice('install_module', $bool, $pwcommerceModuleName);
+				// TODO testing why dependent modules reported as not installed but actually installed! i.e. PwCommerce and PwCommerceHooks
+				$modules->refresh();
 			} catch (\Throwable $th) {
 				//throw $th;
+				$bool = false;
 				$message = $th->getMessage();
 				$message .= " ($pwcommerceModuleName)";
 				$this->setFormattedMigrationNotice('install_module', $bool, $message);
+				bd($bool, __METHOD__ . ': $bool - at line #' . __LINE__);
+				bd($message, __METHOD__ . ': $message - at line #' . __LINE__);
 			}
 		}
 	}
 
 
 	private function actionMigrateInstallModule($class) {
-		bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
+		// bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 		$module = $modules->install($class);
@@ -1442,7 +1489,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	}
 
 	private function actionMigrateUninstallModule($class) {
-		bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
+		// bd($class, __METHOD__ . ': $class - at line #' . __LINE__);
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 		$isUninstalled = $modules->uninstall($class);
@@ -1452,7 +1499,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private function actionMigrateExportPadloperInstallSettings() {
 		// NOTE THIS SAVES TO CACHE
 		$installConfigs = $this->getPadloperInstallSettings();
-		bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		// bdb($installConfigs, __METHOD__ . ': $installConfigs - PROCESS PADLOPER INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
 		$importInstallConfigs = [];
 		foreach ($installConfigs as $key => $value) {
 			// RENAME as needed
@@ -1460,7 +1507,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$renamedKey = str_replace("padloper", "pwcommerce", $key);
 			$importInstallConfigs[$renamedKey] = $value;
 		}
-		bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
+		// bdb($importInstallConfigs, __METHOD__ . ': $importInstallConfigs - PROCESS PADLOPER RENAMED INSTALL SETTINGS TO IMPORT - at line #' . __LINE__);
 		// SAVE TO CACHE
 		$bool = $this->cacheExportedPadloperInstallSettings($importInstallConfigs);
 		// set notice for cache of install settings saved
