@@ -509,6 +509,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $pwcommerceModules;
 	}
 
+	private function getPadloperCustomTablesNames(){
+		$tableNames = [
+			'padloper_cart',
+			'padloper_download_codes',
+			'padloper_order_status',
+		];
+		return $tableNames;
+	}
+
 	private function getClassShortName($object) {
 		$shortName = (new \ReflectionClass($object))->getShortName();
 		return $shortName;
@@ -1048,7 +1057,13 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		@method: $this->actionMigrateCustomerRole()
 
-		12. Migrate Assets
+
+		12. Migrate Custom Tables
+		// TODO - SORT THIS OUT!
+
+		@method: $this->actionMigrateCustomTables()
+
+		13. Migrate Assets
 		a. Rename the folder /site/templates/padloper to /site/templates/pwcommerce
 		b. Rename the files in /site/templates/pwcommerce/backend/*.*
 		- e.g. 'padloper-process-render-orders.php' to 'pwcommerce-process-render-orders.php'
@@ -1056,12 +1071,12 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		@method: $this->actionMigratePadloperAssetsFolder()
 		@method: $this->actionMigrateBackendTemplatePartials()
 
-		13. Cache Notices
+		14. Cache Notices
 		a. We will use the cache after cleanup redirects to /finished-migration/
 
 		@method: $this->actionCacheMigrationNotices()
 
-		14. Cleanup
+		15. Cleanup
 		a. clear saved cache with Padloper Install Configs/Settings.
 		b. remove migration session.
 		c. redirect to finished page and show notices
@@ -1538,6 +1553,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			// set notice customer role not found
 			$this->setFormattedMigrationNotice('roles', $bool, $message);
 		}
+	}
+
+	private function actionMigrateCustomTables(){
+		// TODO SORT IT OUT!
 	}
 
 	private function actionMigrateUninstallPadloperModules() {
