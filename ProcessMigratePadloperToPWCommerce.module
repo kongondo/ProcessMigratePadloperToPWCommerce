@@ -41,6 +41,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PADLOPER_RUNTIME_MARKUP_FIELD_NAME = 'padloper_runtime_markup';
 	private const PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME = 'pwcommerce_runtime_markup';
 	private const PWCOMMERCE_RUNTIME_MARKUP_MODULE_NAME = 'FieldtypePWCommerceRuntimeMarkup';
+	private const PADLOPER_RUNTIME_MARKUP_MODULE_NAME = 'FieldtypePadloperRuntimeMarkup';
 
 	private $migrationNotices = [];
 	private $installedPadloperCustomerFieldsNames = [];
@@ -126,6 +127,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 	public function executeMigrate() {
 		$this->headline($this->_("Run Migration"));
+
+		// VALIDATION
+		// in case page accessed directly
+		$errors = $this->runChecks();
+		if (!empty($errors)) {
+			$this->session->redirect($this->page->url);
+		}
+
+
 		if (empty($this->isMigrationSessionValid())) {
 			$error = $this->_('Invalid Migration Session');
 			$this->error($error);
@@ -166,7 +176,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				"</p>";
 		} else {
 			$out = "<p>" .
-				$this->_('Migration process is complete. Please review the following notices. Please check if you can manually resolve any errors. Please note there might be false positives.') .
+				$this->_('Migration process is complete. Please review the following notices. Please check if you can manually resolve any errors. Please note there might be false positives. Once all pending manual tasks are completed, you can delete Padloper modules from your system.') .
 				"</p>";
 
 			// notices
@@ -379,9 +389,6 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$fields = $this->wire('fields');
 		/** @var Field $oldRMField */
 		$rmField = $fields->get($runtimeMarkupFieldName2);
-		bd($runtimeMarkupFieldName2, __METHOD__ . ': $runtimeMarkupFieldName2 at line #' . __LINE__);
-		bd($isPostTemporaryRename, __METHOD__ . ': $isPostTemporaryRename at line #' . __LINE__);
-		bd($rmField, __METHOD__ . ': $rmField at line #' . __LINE__);
 		return $rmField;
 	}
 
@@ -392,7 +399,6 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			'pwcommerce-product',
 			'pwcommerce-shipping-zone',
 		];
-		bd($templatesWithRuntimeMarkup, __METHOD__ . ': $templatesWithRuntimeMarkup at line #' . __LINE__);
 		return $templatesWithRuntimeMarkup;
 	}
 
@@ -509,7 +515,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		return $pwcommerceModules;
 	}
 
-	private function getPadloperCustomTablesNames(){
+	private function getPadloperCustomTablesNames() {
 		$tableNames = [
 			'padloper_cart',
 			'padloper_download_codes',
@@ -596,7 +602,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			. "</h3>";
 		$out .= '<p>' .
 
-			$this->_('Please note that Templates, Fields, Roles, and Assets will be RENAMED, Fieldtypes will be REASSIGNED, Pages will be REPARENTED and settings will be imported and REAPPLIED.') .
+			$this->_('Please note that Templates, Fields, Roles, Custom Tables and Assets will be RENAMED, Fieldtypes will be REASSIGNED, Pages will be REPARENTED and settings will be imported and REAPPLIED.') .
 
 			'</p>';
 
@@ -683,7 +689,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 		$changesNotice = $this->_('Please note that you will need to make some changes to your template files. These are outlined below.');
 
-		$changesTemplateFiles = $this->_("Template Files: All instances of '\$padloper' should be replaced by '\$pwcommerce'. For instance '\$padloper->getCart()' should become '\$pwcommerce->getCart()'.");
+		$changesTemplateFiles = $this->_("Template Files: All instances of '\$padloper' should be replaced by '\$pwcommerce'. For instance '\$padloper->getCart()' should become '\$pwcommerce->getCart()'. All instances of 'pad_' should be replaced by 'pwcommerce_'. For instance 'pad_price_total' should become 'pwcommerce_price_total'.");
 
 		$changesHooks = $this->_("Hooks: Your hooks, e.g. in ready.php should be renamed as follows: All instances of 'Padloper::someHookedMethod' should become 'PwCommerce::someHookedMethod'. Please note the spelling is case-sensitive.");
 		$out =
@@ -713,7 +719,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			} elseif ($task === 'pages') {
 				// path if pages
 				$itemStr = $taskItem->path;
-			} elseif ($task === 'assets') {
+			} elseif (in_array($task, ['custom_tables', 'assets'])) {
+				// custom tables and assets
 				$itemStr = $taskItem;
 			} elseif ($task === 'install_settings') {
 				// json if configs
@@ -801,6 +808,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			'fieldtypes' => $this->_('Fieldtypes'),
 			'pages' => $this->_('Pages'),
 			'roles' => $this->_('Roles'),
+			'custom_tables' => $this->_('Custom Tables'),
 			'assets' => $this->_('Assets'),
 			'install_settings' => $this->_('Install Settings'),
 		];
@@ -822,6 +830,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			'fieldtypes' => $this->getPadloperCustomFields(),
 			'pages' => [$this->getPadloperRootPage()],
 			'roles' => [$this->getPadloperCustomerRole()],
+			'custom_tables' => $this->getPadloperCustomTablesNames(),
 			'assets' => $assets,
 			'install_settings' => $this->getPadloperInstallSettings(),
 		];
@@ -914,6 +923,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				'error' => $this->_('Error: Install Settings cache not deleted'),
 				'success' => $this->_('Success: Install Settings cache deleted'),
 			],
+			'rename_custom_tables' => [
+				'error' => $this->_('Error: Custom Table not renamed'),
+				'success' => $this->_('Success: Custom Table renamed'),
+			],
 			// OTHER
 			'install_module' => [
 				'error' => $this->_('Error: Module not installed'),
@@ -946,6 +959,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MIGRATORS  ~~~~~~~~~~~~~~~~~~
 
 	private function actionRunMigration() {
+
 		// NOTE: THIS WILL RUN THE MIGRATION TOOLS BELOW, IN A PARTICULAR ORDER
 		// NOTE: EACH ACTION WILL 'RECORD' SUCCESS OR ERROR
 		// IN PENULTIMATE METHOD, WE SAVE THOSE TO CACHE
@@ -1059,7 +1073,8 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 
 
 		12. Migrate Custom Tables
-		// TODO - SORT THIS OUT!
+		- i.e. rename 'padloper_xxx' to 'pwcommerce_xxx'
+		- e.g. 'padloper_cart' becomes 'pwcommerce_cart'
 
 		@method: $this->actionMigrateCustomTables()
 
@@ -1130,14 +1145,17 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// 11. Migrate Role - @method: $this->actionMigrateCustomerRole()
 		$this->actionMigrateCustomerRole();
 		// -------------
-		// 12. Migrate Assets - @method: $this->actionMigratePadloperAssetsFolder(), $this->actionMigrateBackendTemplatePartials()
+		// 12. Migrate Custom Tables - @method: $this->actionMigrateCustomTables()
+		$this->actionMigrateCustomTables();
+		// -------------
+		// 13. Migrate Assets - @method: $this->actionMigratePadloperAssetsFolder(), $this->actionMigrateBackendTemplatePartials()
 		$this->actionMigratePadloperAssetsFolder();
 		$this->actionMigrateBackendTemplatePartials();
 		// -------------
-		// 13. Cache Notices - @method: $this->actionCacheMigrationNotices()
+		// 14. Cache Notices - @method: $this->actionCacheMigrationNotices()
 		$this->actionCacheMigrationNotices();
 		// -------------
-		// 14. Cleanup - @method: $this->actionMigrateCleanup()
+		// 15. Cleanup - @method: $this->actionMigrateCleanup()
 		$this->actionMigrateCleanup();
 		// -------------
 	}
@@ -1306,9 +1324,6 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$runtimeMarkupClass = self::PWCOMMERCE_RUNTIME_MARKUP_MODULE_NAME;
 		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
 		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
-		bd($runtimeMarkupClass, __METHOD__ . ': $runtimeMarkupClass at line #' . __LINE__);
-		bd($runtimeMarkupFieldName, __METHOD__ . ': $runtimeMarkupFieldName at line #' . __LINE__);
-		bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $input at line #' . __LINE__);
 
 		// ++++++++++++
 		// a. install FieldtypeRuntimeMarkup
@@ -1318,16 +1333,12 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 			$bool = !empty($module);
 			// set notice for RM FIELDTYPE MODULE name installed
 			$this->setFormattedMigrationNotice('install_module', $bool, $runtimeMarkupClass);
-			bd($module, __METHOD__ . ': $module at line #' . __LINE__);
-			bd($bool, __METHOD__ . ': $bool at line #' . __LINE__);
 		} catch (\Throwable $th) {
 			//throw $th;
 			$bool = false;
 			$message = $th->getMessage();
 			$message .= " ($runtimeMarkupClass)";
 			$this->setFormattedMigrationNotice('install_bool', $bool, $message);
-			bd($bool, __METHOD__ . ': $bool at line #' . __LINE__);
-			bd($message, __METHOD__ . ': $message at line #' . __LINE__);
 		}
 
 		// ++++++++++++
@@ -1339,18 +1350,15 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// c. create new field of type #a
 		$newRMField = new Field();
 		$fieldData =  $this->getRuntimeMarkupFieldData();
-		bd($fieldData, __METHOD__ . ': $fieldData - DEFAULT - at line #' . __LINE__);
 		// get 'dynamicLoadingThreshold' of existng RM field
 		$oldRenamedRMField = $this->getRuntimeMarkupOldField(true);
 		$dynamicLoadingThreshold = (int)$oldRenamedRMField->get('dynamicLoadingThreshold');
 		$fieldData['dynamicLoadingThreshold'] = $dynamicLoadingThreshold;
-		
+
 		$newRMField->setImportData($fieldData);
 		// --------
 		$bool = $newRMField->save();
 
-		bd($bool, __METHOD__ . ': $bool - NEW RM FIELD SAVED - at line #' . __LINE__);
-		bd($newRMField, __METHOD__ . ': $newRMField at line #' . __LINE__);
 
 		// set notice for RM field type assignment (automatic since created the field)
 		$this->setFormattedMigrationNotice('fieldtypes', $bool, $runtimeMarkupClass);
@@ -1358,18 +1366,18 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// ++++++++++++
 		// d. loop through the 4 templates with RM field and insert new field in #c after 'pwcommerce_runtime_markup_old'. then remove old field
 		$templatesWithRuntimeMarkup = $this->getNamesOfTemplatesWithRuntimeMarkupField();
-		bd($templatesWithRuntimeMarkup, __METHOD__ . ': $templatesWithRuntimeMarkup at line #' . __LINE__);
 		foreach ($templatesWithRuntimeMarkup as $templateName) {
 			// MIGRATE IN CONTEXT
 			$bool = $this->actionMigrateRuntimeMarkupInContext($templateName, $newRMField);
-			bd($bool, __METHOD__ . ': $bool - MIGRATE IN CONTEXT FOR TEMPLATE - at line #' . __LINE__);
 		}
 
 		// ++++++++++++
 		// e. outside loop delete 'pwcommerce_runtime_markup_old'
 		$bool = $this->actionMigrateDeleteOldRuntimeMarkupField();
-		bd($bool, __METHOD__ . ': $bool - DELETED OLDRM FIELD - at line #' . __LINE__);
 
+		// ++++++++++++
+		// f. track padloper runtime markup fieldtype for uninstall later
+		$this->installedPadloperCustomerFieldsNames[] = self::PADLOPER_RUNTIME_MARKUP_MODULE_NAME;
 	}
 
 	// private function actionMigrateRuntimeMarkupRenameOldField($runtimeMarkupFieldName) {
@@ -1378,16 +1386,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
-		// /** @var Field $oldRMField */
-		// $oldRMField = $fields->get($runtimeMarkupFieldName);
-		// bd($runtimeMarkupFieldName, __METHOD__ . ': $runtimeMarkupFieldName at line #' . __LINE__);
-		// bd($oldRMField, __METHOD__ . ': $oldRMField at line #' . __LINE__);
+		/** @var Field $oldRMField */
 		// TODO CHECK IF FOUND?
 		$oldRMField = $this->getRuntimeMarkupOldField();
 		$oldRMField->name = $tempRuntimeMarkupFieldName;
 		$bool = $fields->save($oldRMField);
-		bd($bool, __METHOD__ . ': $bool - CHANGE OLD RM FIELD NAME TO TEMPORARY ONE - at line #' . __LINE__);
-		bd($oldRMField, __METHOD__ . ': $oldRMField - CHANGE OLD RM FIELD NAME TO TEMPORARY ONE - at line #' . __LINE__);
 		return $bool;
 	}
 
@@ -1398,28 +1401,21 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		/** @var Templates $templates */
 		$templates = $this->wire('templates');
 		$template = $templates->get($templateName);
-		bd($template, __METHOD__ . ': $template at line #' . __LINE__);
 
 		$bool = false;
 		// ------
 		$fieldgroup = $template->fieldgroup;
-		bd($fieldgroup, __METHOD__ . ': $fieldgroup at line #' . __LINE__);
 		if (!$fieldgroup->hasField($tempRuntimeMarkupFieldName)) {
 			// NO RM FOR SOME REASON
-			bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $tempRuntimeMarkupFieldName - NOT FOUND WHY?! - at line #' . __LINE__);
 			return $bool;
 		}
 
 		// get the existing field to insert after
 		$existingField = $template->fields->get($tempRuntimeMarkupFieldName);
-		bd($existingField, __METHOD__ . ': $existingField at line #' . __LINE__);
 		#  DO THE INSERT #
 		// $newField = $fields->get($newRMField);
-		bd($newRMField, __METHOD__ . ': $newRMField at line #' . __LINE__);
 		$fieldgroup->insertAfter($newRMField, $existingField);
 		$bool = $fieldgroup->save();
-		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD - at line #' . __LINE__);
-		bd($fieldgroup, __METHOD__ . ': $fieldgroup - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD - at line #' . __LINE__);
 
 		// SAVE NEW FIELD IN CONTEXT
 		$existingFieldIncontext = $existingField->getContext($template);
@@ -1429,14 +1425,10 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
 		$bool = $fields->saveFieldgroupContext($newRMFieldIncontext, $fieldgroup);
-		bd($existingFieldIncontext, __METHOD__ . ': $existingFieldIncontext - EXISTING RM FIELD IN THIS TEMPLATE FIELDGROUP TO GET LABEL TO SAVE NEW RM FIELD IN CONTEXT - at line #' . __LINE__);
-		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD IN CONTEXT - at line #' . __LINE__);
 
 		// REMOVE OLD RM FIELD FROM TEMPLATE
 		$bool = $fieldgroup->remove($existingField);
 		$fieldgroup->save();
-		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH OLD RM FIELD REMOVED - at line #' . __LINE__);
-		bd($fieldgroup, __METHOD__ . ': $fieldgroup - TEMPLATE FIELDGROUP SAVED WITH OLD RM FIELD REMOVED - at line #' . __LINE__);
 
 		// TODO OK?
 		// NOTE - we just return final bool!
@@ -1450,10 +1442,7 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$fields = $this->wire('fields');
 		/** @var Field $oldRMField */
 		$oldRMField = $fields->get($tempRuntimeMarkupFieldName);
-		bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $tempRuntimeMarkupFieldName at line #' . __LINE__);
-		bd($oldRMField, __METHOD__ . ': $oldRMField at line #' . __LINE__);
 		$bool = $fields->delete($oldRMField);
-		bd($bool, __METHOD__ . ': $bool - DELETED OLDRM FIELD - at line #' . __LINE__);
 		return $bool;
 	}
 
@@ -1555,8 +1544,32 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		}
 	}
 
-	private function actionMigrateCustomTables(){
-		// TODO SORT IT OUT!
+	private function actionMigrateCustomTables() {
+
+		$tableNames = $this->getPadloperCustomTablesNames();
+
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
+
+		foreach ($tableNames as $oldTableName) {
+			$newTableName = str_replace("padloper", "pwcommerce", $oldTableName);
+
+			try {
+				// $sql = "ALTER TABLE " . $oldTableName . " RENAME TO " . $newTableName;
+				$sql = "ALTER TABLE `$oldTableName` RENAME TO `$newTableName`";
+				$database->query($sql);
+				$bool = true;
+				// set notice for successful table rename
+				$this->setFormattedMigrationNotice('rename_custom_tables', $bool, $newTableName);
+			} catch (\Exception $e) {
+				$e->getMessage();
+				$bool = false;
+				$message = $e->getMessage();
+				$message .= " ($oldTableName)";
+				// set notice for table rename error
+				$this->setFormattedMigrationNotice('rename_custom_tables', $bool, $message);
+			}
+		}
 	}
 
 	private function actionMigrateUninstallPadloperModules() {
