@@ -37,6 +37,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	private const PADLOPER_CUSTOMER_ROLE_NAME = 'padloper-customer';
 	private const PWCOMMERCE_CUSTOMER_ROLE_NAME = 'pwcommerce-customer';
 
+	# RUNTIME MARKUP FIELD
+	private const PADLOPER_RUNTIME_MARKUP_FIELD_NAME = 'padloper_runtime_markup';
+	private const PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME = 'pwcommerce_runtime_markup';
+	private const PWCOMMERCE_RUNTIME_MARKUP_MODULE_NAME = 'FieldtypePWCommerceRuntimeMarkup';
+
 	private $migrationNotices = [];
 	private $installedPadloperCustomerFieldsNames = [];
 
@@ -339,6 +344,56 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		$pwcommerceCustomFields = $fields->find("name^=pwcommerce, type%=pwcommerce");
 
 		return $pwcommerceCustomFields;
+	}
+
+	private function getRuntimeMarkupFieldData() {
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$runtimeMarkupClass = self::PWCOMMERCE_RUNTIME_MARKUP_MODULE_NAME;
+		$fieldData =  [
+			"name" => $runtimeMarkupFieldName,
+			"label" => "PWCommerce Runtime Markup",
+			"flags" => 0,
+			"type" => $runtimeMarkupClass,
+			"dynamicLoadingThreshold" => "0",
+			"collapsed" => 0,
+			"showIf" => "",
+			"themeOffset" => "",
+			"themeBorder" => "",
+			"themeColor" => "",
+			"columnWidth" => 100,
+			"required" => "",
+			"requiredIf" => ""
+
+		];
+		return $fieldData;
+	}
+
+	private function getRuntimeMarkupOldField($isPostTemporaryRename = false) {
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$runtimeMarkupFieldName2 = $runtimeMarkupFieldName;
+		if (!empty($isPostTemporaryRename)) {
+			$runtimeMarkupFieldName2 .= "_temporary";
+		}
+
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		/** @var Field $oldRMField */
+		$rmField = $fields->get($runtimeMarkupFieldName2);
+		bd($runtimeMarkupFieldName2, __METHOD__ . ': $runtimeMarkupFieldName2 at line #' . __LINE__);
+		bd($isPostTemporaryRename, __METHOD__ . ': $isPostTemporaryRename at line #' . __LINE__);
+		bd($rmField, __METHOD__ . ': $rmField at line #' . __LINE__);
+		return $rmField;
+	}
+
+	private function getNamesOfTemplatesWithRuntimeMarkupField() {
+		$templatesWithRuntimeMarkup = [
+			'pwcommerce-attribute',
+			'pwcommerce-country',
+			'pwcommerce-product',
+			'pwcommerce-shipping-zone',
+		];
+		bd($templatesWithRuntimeMarkup, __METHOD__ . ': $templatesWithRuntimeMarkup at line #' . __LINE__);
+		return $templatesWithRuntimeMarkup;
 	}
 
 	private function getPWCommerceCustomFieldsNames() {
@@ -1028,6 +1083,11 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		// -------------
 		// 3. Migrate Field Types - @method: $this->actionMigrateCustomFieldsTypes()
 		$this->actionMigrateCustomFieldsTypes();
+
+		// 3b. Migrate Fieldtype Runtime Markup
+		$this->actionMigrateRuntimeMarkupField();
+
+
 		// -------------
 		// 4. Migrate Pages: Stage 1 - @method: $this->actionMigrateCreateTemporaryRootParent(), $this->actionMigrateTemporaryRootPage()
 		$this->actionMigrateCreateTemporaryRootParent();
@@ -1164,6 +1224,12 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 		if (!empty($padloperCustomFields->count())) {
 			/** @var Field $padloperCustomField */
 			foreach ($padloperCustomFields as $padloperCustomField) {
+
+				# SKIP RUNTME MARKUP FIELD. It requires special handling
+				if ($padloperCustomField->name === self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME) {
+					continue;
+				}
+
 				// GET THE SHORTNAME OF THE CLASS OF THE CURRENT FIELDTYPE
 				// e.g. 'FieldtypePadloperNotes'
 				$padloperCustomFieldTypeClass = $this->getClassShortName($padloperCustomField->type);
@@ -1218,6 +1284,162 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 				}
 			}
 		}
+	}
+
+	private function actionMigrateRuntimeMarkupField() {
+
+		$runtimeMarkupClass = self::PWCOMMERCE_RUNTIME_MARKUP_MODULE_NAME;
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
+		bd($runtimeMarkupClass, __METHOD__ . ': $runtimeMarkupClass at line #' . __LINE__);
+		bd($runtimeMarkupFieldName, __METHOD__ . ': $runtimeMarkupFieldName at line #' . __LINE__);
+		bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $input at line #' . __LINE__);
+
+		// ++++++++++++
+		// a. install FieldtypeRuntimeMarkup
+		try {
+			// INSTALL MODULE
+			$module = $this->actionMigrateInstallModule($runtimeMarkupClass);
+			$bool = !empty($module);
+			// set notice for RM FIELDTYPE MODULE name installed
+			$this->setFormattedMigrationNotice('install_module', $bool, $runtimeMarkupClass);
+			bd($module, __METHOD__ . ': $module at line #' . __LINE__);
+			bd($bool, __METHOD__ . ': $bool at line #' . __LINE__);
+		} catch (\Throwable $th) {
+			//throw $th;
+			$bool = false;
+			$message = $th->getMessage();
+			$message .= " ($runtimeMarkupClass)";
+			$this->setFormattedMigrationNotice('install_bool', $bool, $message);
+			bd($bool, __METHOD__ . ': $bool at line #' . __LINE__);
+			bd($message, __METHOD__ . ': $message at line #' . __LINE__);
+		}
+
+		// ++++++++++++
+		// b. rename 'pwcommerce_runtime_markup' to 'pwcommerce_runtime_markup_temporary'
+		$bool = $this->actionMigrateRuntimeMarkupRenameOldField();
+
+
+		// ++++++++++++
+		// c. create new field of type #a
+		$newRMField = new Field();
+		$fieldData =  $this->getRuntimeMarkupFieldData();
+		bd($fieldData, __METHOD__ . ': $fieldData - DEFAULT - at line #' . __LINE__);
+		// get 'dynamicLoadingThreshold' of existng RM field
+		$oldRenamedRMField = $this->getRuntimeMarkupOldField(true);
+		$dynamicLoadingThreshold = (int)$oldRenamedRMField->get('dynamicLoadingThreshold');
+		$fieldData['dynamicLoadingThreshold'] = $dynamicLoadingThreshold;
+		
+		$newRMField->setImportData($fieldData);
+		// --------
+		$bool = $newRMField->save();
+
+		bd($bool, __METHOD__ . ': $bool - NEW RM FIELD SAVED - at line #' . __LINE__);
+		bd($newRMField, __METHOD__ . ': $newRMField at line #' . __LINE__);
+
+		// set notice for RM field type assignment (automatic since created the field)
+		$this->setFormattedMigrationNotice('fieldtypes', $bool, $runtimeMarkupClass);
+
+		// ++++++++++++
+		// d. loop through the 4 templates with RM field and insert new field in #c after 'pwcommerce_runtime_markup_old'. then remove old field
+		$templatesWithRuntimeMarkup = $this->getNamesOfTemplatesWithRuntimeMarkupField();
+		bd($templatesWithRuntimeMarkup, __METHOD__ . ': $templatesWithRuntimeMarkup at line #' . __LINE__);
+		foreach ($templatesWithRuntimeMarkup as $templateName) {
+			// MIGRATE IN CONTEXT
+			$bool = $this->actionMigrateRuntimeMarkupInContext($templateName, $newRMField);
+			bd($bool, __METHOD__ . ': $bool - MIGRATE IN CONTEXT FOR TEMPLATE - at line #' . __LINE__);
+		}
+
+		// ++++++++++++
+		// e. outside loop delete 'pwcommerce_runtime_markup_old'
+		$bool = $this->actionMigrateDeleteOldRuntimeMarkupField();
+		bd($bool, __METHOD__ . ': $bool - DELETED OLDRM FIELD - at line #' . __LINE__);
+
+	}
+
+	// private function actionMigrateRuntimeMarkupRenameOldField($runtimeMarkupFieldName) {
+	private function actionMigrateRuntimeMarkupRenameOldField() {
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		// /** @var Field $oldRMField */
+		// $oldRMField = $fields->get($runtimeMarkupFieldName);
+		// bd($runtimeMarkupFieldName, __METHOD__ . ': $runtimeMarkupFieldName at line #' . __LINE__);
+		// bd($oldRMField, __METHOD__ . ': $oldRMField at line #' . __LINE__);
+		// TODO CHECK IF FOUND?
+		$oldRMField = $this->getRuntimeMarkupOldField();
+		$oldRMField->name = $tempRuntimeMarkupFieldName;
+		$bool = $fields->save($oldRMField);
+		bd($bool, __METHOD__ . ': $bool - CHANGE OLD RM FIELD NAME TO TEMPORARY ONE - at line #' . __LINE__);
+		bd($oldRMField, __METHOD__ . ': $oldRMField - CHANGE OLD RM FIELD NAME TO TEMPORARY ONE - at line #' . __LINE__);
+		return $bool;
+	}
+
+	private function actionMigrateRuntimeMarkupInContext($templateName, $newRMField) {
+
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
+		/** @var Templates $templates */
+		$templates = $this->wire('templates');
+		$template = $templates->get($templateName);
+		bd($template, __METHOD__ . ': $template at line #' . __LINE__);
+
+		$bool = false;
+		// ------
+		$fieldgroup = $template->fieldgroup;
+		bd($fieldgroup, __METHOD__ . ': $fieldgroup at line #' . __LINE__);
+		if (!$fieldgroup->hasField($tempRuntimeMarkupFieldName)) {
+			// NO RM FOR SOME REASON
+			bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $tempRuntimeMarkupFieldName - NOT FOUND WHY?! - at line #' . __LINE__);
+			return $bool;
+		}
+
+		// get the existing field to insert after
+		$existingField = $template->fields->get($tempRuntimeMarkupFieldName);
+		bd($existingField, __METHOD__ . ': $existingField at line #' . __LINE__);
+		#  DO THE INSERT #
+		// $newField = $fields->get($newRMField);
+		bd($newRMField, __METHOD__ . ': $newRMField at line #' . __LINE__);
+		$fieldgroup->insertAfter($newRMField, $existingField);
+		$bool = $fieldgroup->save();
+		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD - at line #' . __LINE__);
+		bd($fieldgroup, __METHOD__ . ': $fieldgroup - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD - at line #' . __LINE__);
+
+		// SAVE NEW FIELD IN CONTEXT
+		$existingFieldIncontext = $existingField->getContext($template);
+		$newRMFieldIncontext = $newRMField->getContext($template);
+		$newRMFieldIncontext->label = $existingFieldIncontext->label;
+
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		$bool = $fields->saveFieldgroupContext($newRMFieldIncontext, $fieldgroup);
+		bd($existingFieldIncontext, __METHOD__ . ': $existingFieldIncontext - EXISTING RM FIELD IN THIS TEMPLATE FIELDGROUP TO GET LABEL TO SAVE NEW RM FIELD IN CONTEXT - at line #' . __LINE__);
+		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH NEW RM FIELD IN CONTEXT - at line #' . __LINE__);
+
+		// REMOVE OLD RM FIELD FROM TEMPLATE
+		$bool = $fieldgroup->remove($existingField);
+		$fieldgroup->save();
+		bd($bool, __METHOD__ . ': $bool - TEMPLATE FIELDGROUP SAVED WITH OLD RM FIELD REMOVED - at line #' . __LINE__);
+		bd($fieldgroup, __METHOD__ . ': $fieldgroup - TEMPLATE FIELDGROUP SAVED WITH OLD RM FIELD REMOVED - at line #' . __LINE__);
+
+		// TODO OK?
+		// NOTE - we just return final bool!
+		return $bool;
+	}
+
+	private function actionMigrateDeleteOldRuntimeMarkupField() {
+		$runtimeMarkupFieldName = self::PWCOMMERCE_RUNTIME_MARKUP_FIELD_NAME;
+		$tempRuntimeMarkupFieldName = $runtimeMarkupFieldName . "_temporary";
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		/** @var Field $oldRMField */
+		$oldRMField = $fields->get($tempRuntimeMarkupFieldName);
+		bd($tempRuntimeMarkupFieldName, __METHOD__ . ': $tempRuntimeMarkupFieldName at line #' . __LINE__);
+		bd($oldRMField, __METHOD__ . ': $oldRMField at line #' . __LINE__);
+		$bool = $fields->delete($oldRMField);
+		bd($bool, __METHOD__ . ': $bool - DELETED OLDRM FIELD - at line #' . __LINE__);
+		return $bool;
 	}
 
 	private function actionMigratePadloperAssetsFolder() {
@@ -1549,6 +1771,5 @@ class ProcessMigratePadloperToPWCommerce extends Process implements Module {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DEBUG  ~~~~~~~~~~~~~~~~~~
 
 	private function _debug() {
-		
 	}
 }
